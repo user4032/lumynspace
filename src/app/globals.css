@@ -1,0 +1,402 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Темна тема вмикається класом .dark на будь-якому предку (next-themes ставить його на <html>). */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Єдиний акцентний колір Lumyn */
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-subtle: var(--subtle);
+  /* «Світло» — теплий колір механіки Glow (єдиний виняток з одного акценту) */
+  --color-glow: var(--glow);
+  --color-close: var(--close);
+  --color-accent-user: var(--accent-user);
+  --color-accent-user-fg: var(--accent-user-fg);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-blink: blink 1.2s ease-in-out infinite;
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-2px); }
+  }
+}
+
+/* ── Дизайн-токени ───────────────────────────────────────────── */
+:root,
+.light {
+  --radius: 0.5rem;
+  --background: #ffffff;
+  --foreground: #171717;
+  --subtle: #fafafa;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #171717;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #171717;
+  --muted: #f2f2f2;
+  --muted-foreground: #666666;
+  --accent: #ebebeb;
+  --accent-foreground: #171717;
+  --destructive: #e5484d;
+  --border: #ebebeb;
+  --input: #e2e2e2;
+  --ring: #a1a1a1;
+  --brand: #0068d6;
+  --brand-foreground: #ffffff;
+  --glow: #e58a00;
+  --close: #0f9d58;
+  --accent-user: var(--brand);
+  --accent-user-fg: #ffffff;
+
+  /* підсвітка коду (sugar-high) */
+  --sh-class: #7c3aed;
+  --sh-identifier: #171717;
+  --sh-sign: #8f8f8f;
+  --sh-property: #0068d6;
+  --sh-entity: #0f7b5f;
+  --sh-jsxliterals: #6d28d9;
+  --sh-string: #0f7b5f;
+  --sh-keyword: #c2185b;
+  --sh-comment: #a1a1a1;
+}
+
+.dark {
+  --background: #000000;
+  --foreground: #ededed;
+  --subtle: #0a0a0a;
+  --card: #0a0a0a;
+  --card-foreground: #ededed;
+  --popover: #0a0a0a;
+  --popover-foreground: #ededed;
+  --primary: #ededed;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ededed;
+  --muted: #1a1a1a;
+  --muted-foreground: #a1a1a1;
+  --accent: #1f1f1f;
+  --accent-foreground: #ededed;
+  --destructive: #ff6166;
+  --border: #242424;
+  --input: #2e2e2e;
+  --ring: #5c5c5c;
+  --brand: #3b8eff;
+  --brand-foreground: #ffffff;
+  --glow: #ffb224;
+  --close: #3ddc84;
+
+  --sh-class: #c4b5fd;
+  --sh-identifier: #ededed;
+  --sh-sign: #8f8f8f;
+  --sh-property: #7cb7ff;
+  --sh-entity: #62e3b5;
+  --sh-jsxliterals: #c4b5fd;
+  --sh-string: #62e3b5;
+  --sh-keyword: #ff7ab2;
+  --sh-comment: #6b6b6b;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "liga" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--brand) 30%, transparent);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* тонка сітка на фоні, як на vercel.com */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 40%, transparent);
+  }
+  .mask-radial {
+    mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  /* скелетон із м'яким переливом */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--muted) 0%,
+      color-mix(in oklab, var(--muted) 60%, var(--background)) 50%,
+      var(--muted) 100%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+/* код у дописах */
+.code-block code {
+  counter-reset: sh-line-number;
+}
+.code-block .sh__line::before {
+  counter-increment: sh-line-number 1;
+  content: counter(sh-line-number);
+  display: inline-block;
+  width: 2ch;
+  margin-right: 1.25ch;
+  text-align: right;
+  color: var(--sh-comment);
+  opacity: 0.6;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Lumyn v2 — світло, Glow, прожектор, переходи
+   ════════════════════════════════════════════════════════════════ */
+
+/* Прожектор на картках: --x/--y ставить onPointerMove, колір — акцент автора */
+.spotlight {
+  --x: 50%;
+  --y: 50%;
+  --spot: var(--accent-user, var(--brand));
+  position: relative;
+  isolation: isolate;
+}
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  background: radial-gradient(400px circle at var(--x) var(--y), color-mix(in oklab, var(--spot) 8%, transparent), transparent 70%);
+}
+/* підсвітка рамки: той самий градієнт, але видимий лише в 1px по краю (mask) */
+.spotlight::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(260px circle at var(--x) var(--y), color-mix(in oklab, var(--spot) 55%, transparent), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+@media (hover: hover) {
+  .spotlight:hover::before,
+  .spotlight:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Glow-допис згасає: --life 1 → 0 (з expires_at) */
+.glow-fade {
+  --life: 1;
+  filter: saturate(calc(0.4 + 0.6 * var(--life))) brightness(calc(0.75 + 0.25 * var(--life)));
+  transition: filter 600ms ease-out;
+}
+.life-bar {
+  background: linear-gradient(90deg, color-mix(in oklab, var(--glow) 35%, transparent), var(--glow));
+  box-shadow: 0 0 12px color-mix(in oklab, var(--glow) 70%, transparent);
+}
+
+/* Тема: коло з координат кнопки (View Transitions API) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+
+/* Допис → сторінка допису: спільний елемент (React <ViewTransition share="morph">) */
+::view-transition-group(.morph) {
+  animation-duration: 380ms;
+  /* пружина stiffness 300 / damping 30 у вигляді linear() */
+  animation-timing-function: linear(0, 0.1 4.5%, 0.36 11%, 0.62 18%, 0.8 25%, 0.91 32%, 0.97 40%, 1.003 50%, 1.008 60%, 1.003 75%, 1);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: lumyn-via-blur;
+}
+@keyframes lumyn-via-blur {
+  30% {
+    filter: blur(2px);
+  }
+}
+::view-transition-new(.thread-in) {
+  animation: lumyn-thread-in 260ms cubic-bezier(0.22, 1, 0.36, 1) 150ms both;
+}
+@keyframes lumyn-thread-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Банер профілю: повільні градієнтні плями в акценті */
+@keyframes lumyn-blob {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(var(--dx, 40px), var(--dy, -30px), 0) scale(var(--s, 1.25));
+  }
+}
+.blob {
+  animation: lumyn-blob 20s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Еквалайзер «Зараз грає» */
+.eq > span {
+  height: 40%;
+  animation: lumyn-eq 0.9s ease-in-out infinite alternate;
+}
+@keyframes lumyn-eq {
+  0% {
+    height: 20%;
+  }
+  50% {
+    height: 100%;
+  }
+  100% {
+    height: 45%;
+  }
+}
+
+@keyframes lumyn-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Лендінг: м'яке «дихання» світла */
+@keyframes lumyn-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.06); }
+}
+.breathe {
+  animation: lumyn-breathe 6s ease-in-out infinite;
+}
+
+/* ⌘K: scale .96 → 1, blur 8px → 0, 180 мс */
+.cmdk-pop[data-state="open"] {
+  animation: lumyn-cmdk-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.cmdk-pop[data-state="closed"] {
+  animation: lumyn-cmdk-out 120ms ease-in both;
+}
+@keyframes lumyn-cmdk-in {
+  from {
+    opacity: 0;
+    scale: 0.96;
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+    filter: blur(0);
+  }
+}
+@keyframes lumyn-cmdk-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
+    filter: blur(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eq > span {
+    animation: none;
+  }
+  .cmdk-pop[data-state="open"] {
+    animation: lumyn-fade-in 150ms ease-out both;
+  }
+  .cmdk-pop[data-state="closed"] {
+    animation: none;
+  }
+  .blob,
+  .breathe {
+    animation: none;
+  }
+  .spotlight::before,
+  .spotlight::after {
+    display: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
