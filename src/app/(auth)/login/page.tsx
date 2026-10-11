@@ -59,8 +59,8 @@ export default function LoginPage() {
           )}
 
           <p className="mt-8 text-center text-xs leading-relaxed text-balance text-muted-foreground">
-            Продовжуючи, ви погоджуєтеся з <span className="text-foreground underline underline-offset-2">Умовами</span> та{" "}
-            <span className="text-foreground underline underline-offset-2">Політикою конфіденційності</span>.
+            Продовжуючи, ви погоджуєтеся з <Link href="/terms" className="text-foreground underline underline-offset-2">Умовами</Link> та{" "}
+            <Link href="/privacy" className="text-foreground underline underline-offset-2">Політикою конфіденційності</Link>.
           </p>
         </div>
       </main>

@@ -86,7 +86,7 @@ export function PrivacyView() {
   const minor = isMinor(privacy.birthYear, new Date(now).getFullYear())
   const [copied, setCopied] = useState<string | null>(null)
 
-  const set = async (patch: { isPrivate?: boolean; dmPolicy?: DmPolicy }) => {
+  const set = async (patch: { isPrivate?: boolean; dmPolicy?: DmPolicy; hideFollowing?: boolean }) => {
     viewerActions.updatePrivacy(patch)
     const res = await updatePrivacy(patch)
     if (!res.ok) toast.error(res.error)
@@ -145,6 +145,14 @@ export function PrivacyView() {
           <label className="flex items-center justify-between gap-4 border-t pt-3 text-sm">
             Показувати статус «у мережі»
             <Switch checked={privacy.showOnline} onCheckedChange={(v) => viewerActions.updatePrivacy({ showOnline: v })} aria-label="Статус у мережі" />
+          </label>
+          <label className="flex items-center justify-between gap-4 border-t pt-3 text-sm">
+            Приховати, кого я читаю
+            <Switch
+              checked={privacy.hideFollowing ?? false}
+              onCheckedChange={(v) => void set({ hideFollowing: v })}
+              aria-label="Приховати список читаю"
+            />
           </label>
         </CardContent>
       </Card>

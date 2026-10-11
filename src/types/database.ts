@@ -94,6 +94,7 @@ export type ProfileRow = Timestamps & {
   birth_year: number | null
   is_private: boolean
   dm_policy: DmPolicy
+  hide_following?: boolean
   onboarded_at: string | null
   invited_by: string | null
   updated_at: string

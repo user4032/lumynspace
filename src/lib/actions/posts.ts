@@ -40,6 +40,12 @@ export async function createPost(input: {
   }
   if (!userId) return { ok: false, error: "Увійдіть, щоб публікувати" }
 
+  // Перевірка онбордингу
+  const { data: prof } = await supabase.from("profiles").select("onboarded_at").eq("id", userId).maybeSingle()
+  if (!prof?.onboarded_at) {
+    return { ok: false, error: "Не вдалося опублікувати: завершіть онбординг або перевірте доступ" }
+  }
+
   const { data, error } = await supabase
     .from("posts")
     .insert({

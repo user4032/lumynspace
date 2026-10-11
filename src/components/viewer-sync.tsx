@@ -29,7 +29,7 @@ export function ViewerSync() {
       if (!me || cancelled) return
 
       const [profileRes, closeRes, blocksRes, mutesRes, followsRes] = await Promise.all([
-        supabase.from("profiles").select(`${PUBLIC_PROFILE_COLUMNS}, feed_prefs, birth_year, onboarded_at`).eq("id", me).maybeSingle(),
+        supabase.from("profiles").select(`${PUBLIC_PROFILE_COLUMNS}, feed_prefs, birth_year, onboarded_at, hide_following`).eq("id", me).maybeSingle(),
         supabase.from("close_friends").select("friend_id").eq("owner_id", me),
         supabase.from("blocks").select("blocked_id").eq("blocker_id", me),
         supabase.from("mutes").select("muted_id").eq("muter_id", me),
@@ -71,12 +71,42 @@ export function ViewerSync() {
         closeFriends,
         blocked,
         muted,
-        privacy: { isPrivate: row.is_private, dmPolicy: row.dm_policy as DmPolicy, birthYear: row.birth_year, showOnline: true },
+        privacy: { isPrivate: row.is_private, dmPolicy: row.dm_policy as DmPolicy, birthYear: row.birth_year, showOnline: true, hideFollowing: row.hide_following ?? false },
         self,
         people,
       })
 
       if (!row.onboarded_at && !window.location.pathname.startsWith("/onboarding")) router.replace("/onboarding")
+
+      // Realtime синхронізація «кого читаю»
+      const channel = supabase
+        .channel(`follows-sync:${me}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "follows", filter: `follower_id=eq.${me}` },
+          async () => {
+            const { data: followsData } = await supabase
+              .from("follows")
+              .select("following_id")
+              .eq("follower_id", me)
+              .eq("status", "accepted")
+              .limit(PEOPLE_LIMIT)
+            const followingIds = (followsData ?? []).map((r) => r.following_id)
+            if (followingIds.length) {
+              const { data: peopleData } = await supabase.from("profiles").select(PUBLIC_PROFILE_COLUMNS).in("id", followingIds)
+              const people = ((peopleData ?? []) as PublicProfileRow[]).map(profileRowToUser)
+              viewerActions.setPeople(people)
+            } else {
+              viewerActions.setPeople([])
+            }
+          }
+        )
+        .subscribe()
+
+      return () => {
+        cancelled = true
+        void supabase.removeChannel(channel)
+      }
     })()
 
     return () => {

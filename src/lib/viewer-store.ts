@@ -34,6 +34,7 @@ export type ViewerState = {
     dmPolicy: DmPolicy
     birthYear: number | null
     showOnline: boolean
+    hideFollowing?: boolean
   }
   /** Supabase: мій рядок profiles (id, аватар, лічильники). У демо — null */
   self?: User | null
@@ -59,7 +60,7 @@ const DEMO_VIEWER: ViewerState = {
   blocked: [],
   muted: [],
   hiddenPosts: [],
-  privacy: { isPrivate: false, dmPolicy: "everyone", birthYear: 2004, showOnline: true },
+  privacy: { isPrivate: false, dmPolicy: "everyone", birthYear: 2004, showOnline: true, hideFollowing: false },
 }
 
 /** Із Supabase: порожній стан до завантаження профілю (ViewerSync) — без мок-людей. */
@@ -81,7 +82,7 @@ const LIVE_VIEWER: ViewerState = {
   blocked: [],
   muted: [],
   hiddenPosts: [],
-  privacy: { isPrivate: false, dmPolicy: "everyone", birthYear: null, showOnline: true },
+  privacy: { isPrivate: false, dmPolicy: "everyone", birthYear: null, showOnline: true, hideFollowing: false },
   self: null,
   people: [],
 }
@@ -187,6 +188,7 @@ export const viewerActions = {
       hiddenPosts: s.hiddenPosts,
       privacy: { ...next.privacy, showOnline: s.privacy.showOnline },
     })),
+  setPeople: (people: User[]) => setViewer((s) => ({ ...s, people })),
 }
 
 export function useViewer(): ViewerState

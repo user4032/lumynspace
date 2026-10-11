@@ -118,8 +118,8 @@ export function RightRail() {
 
       <footer className="flex flex-wrap gap-x-3 gap-y-1 px-1 pb-4 text-xs text-muted-foreground">
         <Link href="/design" className="hover:text-foreground">Дизайн-система</Link>
-        <span>Умови</span>
-        <span>Конфіденційність</span>
+        <Link href="/terms" className="hover:text-foreground">Умови</Link>
+        <Link href="/privacy" className="hover:text-foreground">Конфіденційність</Link>
         <span className="flex items-center gap-1.5">
           <span className="size-1.5 rounded-full bg-emerald-500" /> Усі системи працюють
         </span>

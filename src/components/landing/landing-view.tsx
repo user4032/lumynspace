@@ -154,9 +154,15 @@ function Waitlist() {
     }
     const t0 = setTimeout(() => id === checkId.current && setState("checking"), 0)
     const t = setTimeout(async () => {
-      const res = await checkHandle(h)
+      setError(null)
+      const res = await checkHandle(h, { forReservation: true })
       if (id !== checkId.current) return
-      setState(res.ok && res.data?.available ? "free" : "taken")
+      if (res.ok && res.data?.reservedByMe) {
+        setState("taken")
+        setError("Цей нік уже заброньовано на вашу пошту")
+      } else {
+        setState(res.ok && res.data?.available ? "free" : "taken")
+      }
     }, 350)
     return () => {
       clearTimeout(t0)

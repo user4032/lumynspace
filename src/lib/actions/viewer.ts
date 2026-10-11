@@ -72,13 +72,14 @@ export async function saveFeedPrefs(prefs: FeedPrefs): Promise<ActionResult> {
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 
-export async function updatePrivacy(input: { isPrivate?: boolean; dmPolicy?: DmPolicy }): Promise<ActionResult> {
+export async function updatePrivacy(input: { isPrivate?: boolean; dmPolicy?: DmPolicy; hideFollowing?: boolean }): Promise<ActionResult> {
   const { supabase, me } = await session()
   if (!supabase) return mockDelay().then(() => ({ ok: true, mock: true }))
   if (!me) return { ok: false, error: "Увійдіть" }
   const patch: Partial<ProfileRow> = {}
   if (input.isPrivate !== undefined) patch.is_private = input.isPrivate
-  if (input.dmPolicy) patch.dm_policy = input.dmPolicy // для неповнолітніх «everyone» тригер замінить на «followers»
+  if (input.dmPolicy) patch.dm_policy = input.dmPolicy
+  if (input.hideFollowing !== undefined) patch.hide_following = input.hideFollowing
   const { error } = await supabase.from("profiles").update(patch).eq("id", me)
   return error ? { ok: false, error: error.message } : { ok: true }
 }
@@ -135,7 +136,7 @@ export async function reportContent(input: {
 
 /* ── Онбординг, інвайти, вейтліст ───────────────────────────────── */
 
-export async function checkHandle(handle: string): Promise<ActionResult<{ available: boolean }>> {
+export async function checkHandle(handle: string, opts?: { forReservation?: boolean }): Promise<ActionResult<{ available: boolean; reservedByMe?: boolean }>> {
   const h = handle.trim().toLowerCase()
   if (!HANDLE_RE.test(h)) return { ok: true, data: { available: false } }
   const supabase = await getSupabaseServerClient()
@@ -146,8 +147,28 @@ export async function checkHandle(handle: string): Promise<ActionResult<{ availa
   }
   const { data, error } = await supabase.rpc("is_handle_available", { p_handle: h })
   if (error) return { ok: false, error: error.message }
+
+  // Для бронювання на лендингу не вважаємо «мій нік» вільним, якщо він уже в reserved_handles
+  if (opts?.forReservation) {
+    if (data) return { ok: true, data: { available: true } }
+    // Перевіряємо, чи це моя бронь (за email)
+    const { data: claims } = await supabase.auth.getClaims()
+    const me = claims?.claims?.sub as string | undefined
+    if (me) {
+      const { data: user } = await supabase.auth.getUser()
+      const email = user.user?.email?.toLowerCase()
+      if (email) {
+        const { data: res } = await supabase.from("reserved_handles").select("email").eq("handle", h).maybeSingle()
+        if (res && res.email === email) {
+          return { ok: true, data: { available: false, reservedByMe: true } }
+        }
+      }
+    }
+    return { ok: true, data: { available: false } }
+  }
+
+  // Звичайна перевірка (онбординг): якщо нік уже мій у профілі — вважаємо вільним для мене
   if (data) return { ok: true, data: { available: true } }
-  // нік, який тригер видав мені при реєстрації (напр. логін GitHub), — теж «вільний» для мене
   const { data: claims } = await supabase.auth.getClaims()
   const me = claims?.claims?.sub as string | undefined
   if (!me) return { ok: true, data: { available: false } }

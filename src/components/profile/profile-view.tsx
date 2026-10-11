@@ -57,13 +57,21 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "communities", label: "Спільноти" },
 ]
 
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
+function Stat({ value, label, href }: { value: number; label: string; href?: string }) {
+  const content = (
     <span className="text-sm">
       <span className="font-semibold text-foreground tabular">{formatCount(value)}</span>{" "}
       <span className="text-muted-foreground">{label}</span>
     </span>
   )
+  if (href) {
+    return (
+      <Link href={href} className="hover:underline">
+        {content}
+      </Link>
+    )
+  }
+  return content
 }
 
 function ProfileMenu({ user }: { user: User }) {
@@ -265,8 +273,8 @@ export function ProfileView({
 
         {!isBlocked && (
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
-            <Stat value={user.followers} label={plural(user.followers, ["читач", "читачі", "читачів"])} />
-            <Stat value={user.following} label="читає" />
+            <Stat value={user.followers} label={plural(user.followers, ["читач", "читачі", "читачів"])} href={`/${user.username}/followers`} />
+            <Stat value={user.following} label="читає" href={`/${user.username}/following`} />
             <Stat value={user.postsCount} label={plural(user.postsCount, ["допис", "дописи", "дописів"])} />
           </div>
         )}
