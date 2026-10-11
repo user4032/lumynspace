@@ -36,7 +36,7 @@ export function ViewerSync() {
         supabase.from("follows").select("following_id").eq("follower_id", me).eq("status", "accepted").limit(PEOPLE_LIMIT),
       ])
       if (cancelled) return
-      const row = profileRes.data as (PublicProfileRow & { feed_prefs: unknown; birth_year: number | null; onboarded_at: string | null }) | null
+      const row = profileRes.data as (PublicProfileRow & { feed_prefs: unknown; birth_year: number | null; onboarded_at: string | null; hide_following?: boolean }) | null
       if (!row) return
 
       const closeFriends = (closeRes.data ?? []).map((r) => r.friend_id)
