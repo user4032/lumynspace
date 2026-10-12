@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Suspense } from "react"
+import Image from "next/image"
 import { ArrowUpRight } from "lucide-react"
 import { formatCount, plural } from "@/lib/format"
 import { communities as mockCommunities, suggestedUsers, trends as mockTrends } from "@/lib/mock-data"
@@ -79,21 +80,25 @@ function RailContent({ trends, people, communities }: { trends: Trend[]; people:
         {communities.length === 0 && <Empty>Спільнот ще немає</Empty>}
         <ul>
           {communities.map((c) => (
-            <li key={c.id}>
-              <Link href={`/c/${c.slug}`} className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-subtle">
-                <span
-                  className="size-8 shrink-0 rounded-md ring-1 ring-inset ring-foreground/10"
-                  style={{ background: `linear-gradient(135deg, oklch(0.75 0.13 ${c.hue}), oklch(0.5 0.17 ${c.hue + 40}))` }}
-                />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium">{c.name}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {formatCount(c.members)} {plural(c.members, ["учасник", "учасники", "учасників"])}
-                  </span>
-                </span>
-              </Link>
-            </li>
-          ))}
+  <li key={c.id}>
+    <Link href={`/c/${c.slug}`} className="flex items-center gap-3 px-4 py-2 transition-colors hover:bg-subtle">
+      {c.avatarUrl ? (
+        <Image src={c.avatarUrl} alt="" width={32} height={32} className="size-8 shrink-0 rounded-md object-cover ring-1 ring-inset ring-foreground/10" />
+      ) : (
+        <span
+          className="size-8 shrink-0 rounded-md ring-1 ring-inset ring-foreground/10"
+          style={{ background: `linear-gradient(135deg, oklch(0.75 0.13 ${c.hue}), oklch(0.5 0.17 ${c.hue + 40}))` }}
+        />
+      )}
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium">{c.name}</span>
+        <span className="block text-xs text-muted-foreground">
+          {formatCount(c.members)} {plural(c.members, ["учасник", "учасники", "учасників"])}
+        </span>
+      </span>
+    </Link>
+  </li>
+))}
         </ul>
       </RailSection>
     </>
@@ -117,7 +122,10 @@ export function RightRail() {
       )}
 
       <footer className="flex flex-wrap gap-x-3 gap-y-1 px-1 pb-4 text-xs text-muted-foreground">
-        <Link href="/design" className="hover:text-foreground">Дизайн-система</Link>
+        {/* <Link href="/design" className="hover:text-foreground">Дизайн-система</Link> */}
+        <Link href="/guidelines" className="hover:text-foreground">Правила</Link>
+        <Link href="/about" className="hover:text-foreground">Про нас</Link>
+        <Link href="/contact" className="hover:text-foreground">Контакти</Link>
         <Link href="/terms" className="hover:text-foreground">Умови</Link>
         <Link href="/privacy" className="hover:text-foreground">Конфіденційність</Link>
         <span className="flex items-center gap-1.5">

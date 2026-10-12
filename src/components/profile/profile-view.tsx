@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
 import { motion } from "framer-motion"
+import type { Community, Post, User } from "@/types"
 import {
   Ban,
   CalendarDays,
@@ -19,7 +20,6 @@ import {
   Timer,
   VolumeX,
 } from "lucide-react"
-import type { Community, Post, User } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { UserAvatar } from "@/components/user-avatar"
@@ -48,6 +48,7 @@ import { isMockMode } from "@/lib/env"
 import { FollowButton } from "./follow-button"
 import { ProfileBanner } from "./profile-banner"
 import { NowPlaying, TopFour } from "./profile-widgets"
+import { SpotifyNow } from "./spotify-now"
 
 type Tab = "wall" | "photos" | "friends" | "communities"
 const TABS: { value: Tab; label: string }[] = [
@@ -279,10 +280,10 @@ export function ProfileView({
           </div>
         )}
 
-        {!isBlocked && !locked && (user.widgets?.top4?.length || user.widgets?.now_playing) ? (
+        {!isBlocked && !locked && (user.widgets?.top4?.length || user.widgets?.now_playing || isMe) ? (
           <div className="mt-4 grid gap-2 sm:grid-cols-[1.3fr_1fr]">
             <TopFour ids={user.widgets?.top4} pool={[...top4Users, ...friends, ...(isMe ? people : [])]} />
-            <NowPlaying track={user.widgets?.now_playing} />
+            {isMe ? <SpotifyNow userId={user.id} /> : <NowPlaying track={user.widgets?.now_playing} />}
           </div>
         ) : null}
       </div>

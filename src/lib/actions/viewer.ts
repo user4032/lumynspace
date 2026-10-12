@@ -15,6 +15,12 @@ async function session() {
 }
 
 const HANDLE_RE = /^[a-z0-9_]{3,24}$/
+const RESERVED = new Set([
+  "settings", "terms", "privacy", "login", "api", "about", "welcome",
+  "onboarding", "guidelines", "contact", "admin", "support", "help",
+  "explore", "notifications", "messages", "post", "auth", "design",
+  "communities", "c", "u", "me", "app", "www", "mail", "root",
+])
 const HEX_RE = /^#[0-9a-f]{6}$/
 
 /* ── Профіль і кастомізація ─────────────────────────────────────── */
@@ -138,6 +144,7 @@ export async function reportContent(input: {
 
 export async function checkHandle(handle: string, opts?: { forReservation?: boolean }): Promise<ActionResult<{ available: boolean; reservedByMe?: boolean }>> {
   const h = handle.trim().toLowerCase()
+  if (RESERVED.has(h)) return { ok: true, data: { available: false } }
   if (!HANDLE_RE.test(h)) return { ok: true, data: { available: false } }
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
@@ -206,6 +213,7 @@ export async function getOnboardingStatus(): Promise<
 
 export async function reserveHandle(handle: string, email: string): Promise<ActionResult> {
   const h = handle.trim().toLowerCase()
+  if (RESERVED.has(h)) return { ok: false, error: "Цей нік зарезервовано" }
   const e = email.trim().toLowerCase()
   if (!HANDLE_RE.test(h)) return { ok: false, error: "Нік: 3–24 символи, латиниця, цифри, _" }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return { ok: false, error: "Перевірте пошту" }

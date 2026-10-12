@@ -91,6 +91,7 @@ export type Post = {
   audience: PostAudience
   /** Чому допис у «Для тебе» (лише для рекомендацій) */
   reason?: PostReason | null
+  views?: number
 }
 
 export type PostReason = {

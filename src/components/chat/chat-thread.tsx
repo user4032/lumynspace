@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { uploadImage } from "@/lib/storage"
+import { EmojiPicker } from "@/components/ui/emoji-picker"
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -10,7 +12,6 @@ import {
   Info,
   Paperclip,
   Phone,
-  Smile,
 } from "lucide-react";
 import type { Conversation, Message } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,8 @@ function TypingDots() {
 export function ChatThread({ conversation }: { conversation: Conversation }) {
   const [messages, setMessages] = useState<Message[]>(conversation.messages);
   const [text, setText] = useState("");
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [typing, setTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const replyIdx = useRef(0);
@@ -117,7 +120,16 @@ export function ChatThread({ conversation }: { conversation: Conversation }) {
       notifyTyping();
     }
   };
-
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  setUploading(true)
+  const res = await uploadImage("post-media", file)
+  setUploading(false)
+  if (!res.ok) return toast.error(res.error)
+  onType(text + (text ? "\n" : "") + res.url)
+  e.target.value = ""
+  };
   const send = async () => {
     const content = text.trim();
     if (!content) return;
@@ -314,15 +326,20 @@ export function ChatThread({ conversation }: { conversation: Conversation }) {
           className="shrink-0 border-t p-3"
         >
           <div className="mx-auto flex max-w-2xl items-end gap-2 rounded-xl border bg-subtle p-1.5 pl-2 transition-colors focus-within:border-ring">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Прикріпити"
-              className="rounded-lg"
-            >
-              <Paperclip />
-            </Button>
+            <>
+  <Button
+    type="button"
+    variant="ghost"
+    size="icon-sm"
+    aria-label="Прикріпити"
+    className="rounded-lg"
+    disabled={uploading}
+    onClick={() => fileRef.current?.click()}
+  >
+    <Paperclip />
+  </Button>
+  <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickFile} />
+</>
             <textarea
               value={text}
               onChange={(e) => onType(e.target.value)}
@@ -337,15 +354,7 @@ export function ChatThread({ conversation }: { conversation: Conversation }) {
               aria-label="Повідомлення"
               className="field-sizing-content max-h-40 min-h-8 flex-1 resize-none bg-transparent py-1.5 text-sm outline-none placeholder:text-muted-foreground"
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Емодзі"
-              className="rounded-lg"
-            >
-              <Smile />
-            </Button>
+            <EmojiPicker onPick={(e) => onType(text + e)} />
             <Button
               type="submit"
               size="icon-sm"

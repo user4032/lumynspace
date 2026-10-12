@@ -23,6 +23,7 @@ export type ViewerState = {
     bannerStyle: BannerStyle
     top4: string[]
     nowPlaying: { title: string; artist: string } | null
+    spotifyConnected?: boolean
   }
   feedPrefs: FeedPrefs
   closeFriends: string[]

@@ -1,11 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { useState, ViewTransition } from "react"
+import { useEffect, useState, ViewTransition } from "react"
 import type { Post } from "@/types"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { FollowButton } from "@/components/profile/follow-button"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { formatCount, formatFullDate, plural } from "@/lib/format"
 import { GLOW, lifeFraction } from "@/lib/glow"
 import { accentVars } from "@/lib/accent"
@@ -27,7 +28,7 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
   const now = useNow()
   const me = useMe()
   const { ref, onPointerMove } = useSpotlight<HTMLElement>()
-  const views = light.lights * 9 + post.replies * 31
+  const views = post.views ?? 0
   const isGlow = light.mode === "glow"
   const life = isGlow ? lifeFraction(light.expiresAt, now) : 1
 
@@ -51,7 +52,7 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
               </Link>
               <p className="text-sm text-muted-foreground">@{post.author.username}</p>
             </div>
-            {post.author.id !== me.id && <FollowButton userId={post.author.id} />}
+            {post.author.id !== me.id && <FollowStatusButton userId={post.author.id} />}
             <PostMenu post={post} className="ml-0 opacity-100" />
           </div>
 
@@ -102,7 +103,6 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
         </article>
       </ViewTransition>
 
-      {/* тред з'являється після розгортання картки (затримка 150 мс) */}
       <ViewTransition enter="thread-in" default="none">
         <div>
           <Composer
@@ -122,4 +122,30 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
       </ViewTransition>
     </>
   )
+}
+
+function FollowStatusButton({ userId }: { userId: string }) {
+  const [following, setFollowing] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) return
+    supabase.auth.getUser().then(({ data }) => {
+      const me = data.user?.id
+      if (!me) return setReady(true)
+      supabase
+        .from("follows")
+        .select("status")
+        .match({ follower_id: me, following_id: userId })
+        .maybeSingle()
+        .then(({ data }) => {
+          setFollowing(data?.status === "accepted")
+          setReady(true)
+        })
+    })
+  }, [userId])
+
+  if (!ready) return null
+  return <FollowButton userId={userId} initial={following} />
 }

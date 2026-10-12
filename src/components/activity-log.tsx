@@ -20,15 +20,15 @@ import { cn } from "@/lib/utils"
 const LightIcon = (props: { className?: string }) => <SparkIcon filled className={props.className} />
 
 const META: Record<NotificationType, { icon: React.ComponentType<{ className?: string }>; verb: string; code: string; tone?: string }> = {
-  light: { icon: LightIcon, verb: "дав(-ла) світло вашому допису", code: "light", tone: "text-glow" },
-  like: { icon: Heart, verb: "вподобав(-ла) ваш допис", code: "like" },
-  reply: { icon: MessageCircle, verb: "відповів(-ла) на ваш допис", code: "reply" },
-  follow: { icon: UserPlus, verb: "читає вас", code: "follow" },
-  follow_request: { icon: UserRoundPlus, verb: "хоче читати вас", code: "request" },
-  friend_joined: { icon: UserRoundPlus, verb: "приєднався(-лась) до Lumyn за вашим інвайтом", code: "joined", tone: "text-brand" },
-  repost: { icon: Repeat2, verb: "поширив(-ла) ваш допис", code: "repost" },
-  mention: { icon: AtSign, verb: "згадав(-ла) вас", code: "mention" },
-  message: { icon: Mail, verb: "надіслав(-ла) повідомлення", code: "message" },
+  light: { icon: LightIcon, verb: "дав(-ла) світло вашому допису", code: "світло", tone: "text-glow" },
+  like: { icon: Heart, verb: "вподобав(-ла) ваш допис", code: "вподобання" },
+  reply: { icon: MessageCircle, verb: "відповів(-ла) на ваш допис", code: "відповідь" },
+  follow: { icon: UserPlus, verb: "читає вас", code: "підписка" },
+  follow_request: { icon: UserRoundPlus, verb: "хоче читати вас", code: "запит" },
+  friend_joined: { icon: UserRoundPlus, verb: "приєднався(-лась) до Lumyn за вашим інвайтом", code: "запрошення", tone: "text-brand" },
+  repost: { icon: Repeat2, verb: "поширив(-ла) ваш допис", code: "репост" },
+  mention: { icon: AtSign, verb: "згадав(-ла) вас", code: "згадка" },
+  message: { icon: Mail, verb: "надіслав(-ла) повідомлення", code: "повідомлення" },
 }
 
 const FILTERS: { value: "all" | NotificationType; label: string }[] = [

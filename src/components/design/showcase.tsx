@@ -123,7 +123,7 @@ export function Showcase({ mode }: { mode: "light" | "dark" }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <Label htmlFor={`email-${mode}`}>Пошта</Label>
-              <Input id={`email-${mode}`} placeholder="denys@lumyn.app" />
+              <Input id={`email-${mode}`} placeholder="denys@lumyn.space" />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor={`search-${mode}`}>Пошук</Label>

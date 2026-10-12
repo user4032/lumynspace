@@ -192,7 +192,7 @@ export function OnboardingView() {
                     </span>
                   </div>
                   <p className={cn("mt-2 h-4 text-xs", handleState === "taken" || handleState === "bad" ? "text-destructive" : "text-close")}>
-                    {handleState === "free" && `lumyn.app/${handle} — вільно`}
+                    {handleState === "free" && `lumyn.space/${handle} — вільно`}
                     {handleState === "taken" && "Зайнято. Спробуйте інший."}
                     {handleState === "bad" && "Щонайменше 3 символи."}
                   </p>

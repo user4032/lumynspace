@@ -73,7 +73,7 @@ export async function shareCardFor(id: string): Promise<ShareCard | null> {
     life,
     lights: formatCount(post.lights),
     replies: formatCount(post.replies),
-    site: "lumyn.app",
+    site: "lumyn.space",
   }
 }
 

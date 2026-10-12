@@ -4,7 +4,7 @@ import type { Database } from "@/types/database"
 import { isSupabaseConfigured, SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env"
 
 /** Сторінки, доступні без входу */
-const PUBLIC_PATHS = ["/login", "/auth", "/welcome", "/api", "/design", "/post"]
+const PUBLIC_PATHS = ["/login", "/auth", "/welcome", "/api", "/design", "/post", "/terms", "/privacy", "/about", "/contact", "/guidelines"]
 
 /** Оновлює сесію Supabase на кожному запиті (рефреш токена в cookies). */
 export async function updateSession(request: NextRequest) {
@@ -35,9 +35,9 @@ export async function updateSession(request: NextRequest) {
   // Без сесії — на вхід (стрічка, профілі, налаштування потребують акаунта).
   const path = request.nextUrl.pathname
   if (!data?.claims?.sub && !PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    url.search = ""
+  const url = request.nextUrl.clone()
+  url.pathname = path === "/" ? "/welcome" : "/login"
+  url.search = ""
     const redirect = NextResponse.redirect(url)
     // зберігаємо оновлені cookie сесії
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c))

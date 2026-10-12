@@ -339,10 +339,17 @@ export function LandingView() {
         </p>
       </section>
 
-      <footer className="flex items-center justify-between border-t px-5 py-5 text-xs text-muted-foreground sm:px-8">
-        <Logo withWordmark={false} />
-        <span>Київ</span>
-      </footer>
+      <footer className="flex flex-wrap items-center justify-between gap-4 border-t px-5 py-5 text-xs text-muted-foreground sm:px-8">
+  <Logo withWordmark={false} />
+  <div className="flex gap-4">
+    <Link href="/about" className="hover:text-foreground">Про нас</Link>
+    <Link href="/contact" className="hover:text-foreground">Контакти</Link>
+    <Link href="/terms" className="hover:text-foreground">Умови</Link>
+    <Link href="/privacy" className="hover:text-foreground">Конфіденційність</Link>
+    <Link href="/guidelines" className="hover:text-foreground">Правила спільноти</Link>
+    </div>
+  <span>Хмельницький</span>
+</footer>
     </div>
   )
 }

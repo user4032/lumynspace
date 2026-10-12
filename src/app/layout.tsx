@@ -4,13 +4,20 @@ import { GeistMono } from "geist/font/mono"
 import { Providers } from "@/components/providers"
 import "./globals.css"
 
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lumyn.space"
+const DESCRIPTION = "Світло замість лайків, стрічка з кермом, жодних темних патернів. За запрошеннями, з 16 років."
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
-  title: { default: "Lumyn", template: "%s · Lumyn" },
-  description: "Lumyn — соцмережа для тих, хто будує: стрічка, профілі, спільноти й повідомлення.",
+  metadataBase: new URL(SITE),
+  title: {
+    default: "Lumyn — соцмережа, яка не кричить",
+    template: "%s · Lumyn",
+  },
+  description: DESCRIPTION,
   openGraph: {
-    title: "Lumyn",
-    description: "Соцмережа для тих, хто будує.",
+    type: "website",
+    siteName: "Lumyn",
+    locale: "uk_UA",
     images: ["/api/og"],
   },
 }

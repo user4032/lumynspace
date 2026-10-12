@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Ban, EyeOff, ExternalLink, Flag, MoreHorizontal, User as UserIcon, Volume2, VolumeX } from "lucide-react"
+import { Ban, EyeOff, ExternalLink, Flag, MoreHorizontal, Trash2, User as UserIcon, Volume2, VolumeX } from "lucide-react"
 import type { Post } from "@/types"
+import { deletePost } from "@/lib/actions/posts"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils"
 
 export function PostMenu({ post, className }: { post: Post; className?: string }) {
   const [reportOpen, setReportOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const muted = useViewer((s) => s.muted.includes(post.author.id))
   const mod = useModeration()
   const meId = useMe().id
@@ -43,11 +45,22 @@ export function PostMenu({ post, className }: { post: Post; className?: string }
               <ExternalLink /> Відкрити допис
             </Link>
           </DropdownMenuItem>
+
+          {mine && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
+                <Trash2 /> Видалити
+              </DropdownMenuItem>
+            </>
+          )}
+
           <DropdownMenuItem asChild>
             <Link href={`/${post.author.username}`}>
               <UserIcon /> Профіль @{post.author.username}
             </Link>
           </DropdownMenuItem>
+
           {!mine && (
             <>
               <DropdownMenuSeparator />
@@ -68,6 +81,31 @@ export function PostMenu({ post, className }: { post: Post; className?: string }
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70" onClick={() => setConfirmDelete(false)}>
+          <div className="relative z-[101] w-full max-w-sm rounded-xl border bg-card p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold">Видалити допис?</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Цю дію не можна скасувати.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="rounded-md px-3 py-1.5 text-sm hover:bg-muted" onClick={() => setConfirmDelete(false)}>
+                Скасувати
+              </button>
+              <button
+                className="rounded-md bg-destructive px-3 py-1.5 text-sm text-destructive-foreground"
+                onClick={async () => {
+                  const res = await deletePost(post.id)
+                  if (!res.ok) alert(res.error)
+                  else location.reload()
+                }}
+              >
+                Видалити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {reportOpen && (
         <ReportDialog
           open={reportOpen}

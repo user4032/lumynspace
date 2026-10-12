@@ -95,6 +95,19 @@ export async function toggleRepost(postId: string, repost: boolean): Promise<Act
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 
+export async function deletePost(postId: string): Promise<ActionResult> {
+  const { supabase, userId } = await requireUser()
+  if (!supabase) {
+    await mockDelay()
+    return { ok: true, mock: true }
+  }
+  if (!userId) return { ok: false, error: "Увійдіть" }
+  if (notSavedYet(postId)) return { ok: false, error: "Допис ще зберігається" }
+
+  const { error } = await supabase.from("posts").delete().eq("id", postId).eq("author_id", userId)
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
 export async function votePoll(postId: string, optionIndex: number): Promise<ActionResult> {
   const { supabase, userId } = await requireUser()
   if (!supabase) {

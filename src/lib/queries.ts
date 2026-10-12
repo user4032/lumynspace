@@ -89,6 +89,7 @@ export async function getPostWithReplies(id: string): Promise<{ post: Post; repl
   const supabase = await getSupabaseServerClient()
   if (!supabase) return null
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+  
   const [postRes, repliesRes] = await Promise.all([
     supabase.from("feed_posts").select("*").eq("id", id).maybeSingle(),
     supabase.from("feed_posts").select("*").eq("reply_to", id).order("created_at", { ascending: true }).limit(100),

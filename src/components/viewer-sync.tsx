@@ -66,6 +66,7 @@ export function ViewerSync() {
           bannerStyle: row.banner_style,
           top4: widgets.top4 ?? [],
           nowPlaying: widgets.now_playing ?? null,
+          spotifyConnected: Boolean((row.widgets as { spotify_token?: string })?.spotify_token),
         },
         feedPrefs: readFeedPrefs(row.feed_prefs),
         closeFriends,

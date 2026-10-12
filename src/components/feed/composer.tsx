@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
-import { BarChart3, Check, ChevronDown, Code2, Globe2, ImageIcon, Loader2, Plus, Smile, Users2, X } from "lucide-react"
+import { BarChart3, Check, ChevronDown, Code2, Globe2, ImageIcon, Loader2, Plus, Users2, X } from "lucide-react"
 import { toast } from "sonner"
 import type { Post, PostAudience, PostMedia, PostMode } from "@/types"
 import { Button } from "@/components/ui/button"
@@ -17,9 +17,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { UserAvatar } from "@/components/user-avatar"
 import { CloseFriendsIcon, SparkIcon } from "@/components/icons"
-import { createPost } from "@/lib/actions/posts"
+import { createPost } from "@/lib/actions/posts"  
 import { useMe, useViewer } from "@/lib/viewer-store"
 import { computeExpiry, GLOW } from "@/lib/glow"
+import { EmojiPicker } from "@/components/ui/emoji-picker"
 import { nowISO } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { isMockMode } from "@/lib/env"
@@ -513,9 +514,7 @@ export function Composer({
                         <ToolButton label="Опитування" active={!!poll} onClick={() => setPoll(poll ? null : ["", ""])}>
                           <BarChart3 />
                         </ToolButton>
-                        <ToolButton label="Емодзі" onClick={() => setText((t) => t + " 🙂")}>
-                          <Smile />
-                        </ToolButton>
+                          <EmojiPicker onPick={(e) => setText((t) => t + e)} />
                         {topLevel && (
                           <span className="ml-1.5 flex items-center gap-1.5">
                             <GlowToggle on={mode === "glow"} onChange={(v) => setMode(v ? "glow" : "permanent")} />
