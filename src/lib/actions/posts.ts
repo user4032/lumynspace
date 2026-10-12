@@ -26,7 +26,6 @@ export async function createPost(input: {
   replyTo?: string | null
   mode?: PostMode
   audience?: PostAudience
-  /** для audience = "circle" */
   circleId?: string | null
 }): Promise<ActionResult<{ id: string }>> {
   const content = input.content.trim()
@@ -40,29 +39,26 @@ export async function createPost(input: {
   }
   if (!userId) return { ok: false, error: "Увійдіть, щоб публікувати" }
 
-  // Перевірка онбордингу
   const { data: prof } = await supabase.from("profiles").select("onboarded_at").eq("id", userId).maybeSingle()
   if (!prof?.onboarded_at) {
     return { ok: false, error: "Не вдалося опублікувати: завершіть онбординг або перевірте доступ" }
   }
+  
+  const { data, error } = await supabase.rpc(
+  // @ts-expect-error create_post not in generated types yet
+  "create_post",
+  {
+    p_content: content,
+    p_media: input.media ?? [],
+    p_community_id: input.communityId ?? null,
+    p_reply_to: input.replyTo ?? null,
+  }
+)
 
-  const { data, error } = await supabase
-    .from("posts")
-    .insert({
-      author_id: userId,
-      content,
-      media: input.media ?? [],
-      community_id: input.communityId ?? null,
-      reply_to: input.replyTo ?? null,
-      // термін Glow і лічильники виставляє тригер posts_normalize
-      mode: input.replyTo ? "permanent" : (input.mode ?? "permanent"),
-      audience: input.audience ?? "public",
-      circle_id: input.audience === "circle" ? (input.circleId ?? null) : null,
-    })
-    .select("id")
-    .single()
-  if (error) return { ok: false, error: error.message }
-  return { ok: true, data: { id: data.id } }
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Не вдалося опублікувати" }
+  }
+  return { ok: true, data: { id: data as string } }
 }
 
 /** «Світло» замість лайка. Термін Glow і постійність рахує тригер apply_light_change. */

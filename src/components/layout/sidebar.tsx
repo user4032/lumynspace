@@ -84,7 +84,7 @@ export function Sidebar() {
       </Button>
 
       <Link
-        href={`/${me.username}`}
+        href={me.username ? `/${me.username}` : "#"}
         className="mt-auto flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-muted max-xl:justify-center"
       >
         <UserAvatar user={me} size="md" showOnline />

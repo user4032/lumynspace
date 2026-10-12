@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { connection } from "next/server"
+import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { getSupabaseServerClient } from "@/lib/supabase/server"
@@ -9,12 +9,15 @@ import { getUserByUsername, users } from "@/lib/mock-data"
 
 export const metadata: Metadata = { title: "Читачі" }
 
-export default async function FollowersPage({
-  params,
-}: {
-  params: Promise<{ username: string }>
-}) {
-  await connection()
+export default function FollowersPage({ params }: { params: Promise<{ username: string }> }) {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Завантаження…</div>}>
+      <Followers params={params} />
+    </Suspense>
+  )
+}
+
+async function Followers({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
   const handle = decodeURIComponent(username)
 
@@ -42,23 +45,14 @@ export default async function FollowersPage({
   let list: { id: string; username: string; display_name: string | null; avatar_url: string | null }[] = []
 
   if (ids.length) {
-    const { data: people } = await supabase
-      .from("profiles")
-      .select("id, username, display_name, avatar_url")
-      .in("id", ids)
+    const { data: people } = await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids)
     list = people ?? []
   }
 
   return <List title={`Читачі @${handle}`} users={list} />
 }
 
-function List({
-  title,
-  users,
-}: {
-  title: string
-  users: { id: string; username: string; display_name?: string | null; avatar_url?: string | null; name?: string }[]
-}) {
+function List({ title, users }: { title: string; users: { id: string; username: string; display_name?: string | null; avatar_url?: string | null; name?: string }[] }) {
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       <h1 className="text-xl font-semibold">{title}</h1>
@@ -66,14 +60,7 @@ function List({
         {users.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Поки нікого</p>}
         {users.map((u) => (
           <Link key={u.id} href={`/${u.username}`} className="flex items-center gap-3 py-3 hover:bg-subtle">
-            <UserAvatar
-              user={{
-                username: u.username,
-                name: u.display_name ?? u.name ?? u.username,
-                avatarUrl: u.avatar_url,
-              }}
-              size="md"
-            />
+            <UserAvatar user={{ username: u.username, name: u.display_name ?? u.name ?? u.username, avatarUrl: u.avatar_url }} size="md" />
             <div className="min-w-0">
               <div className="truncate font-medium">{u.display_name || u.name || u.username}</div>
               <div className="truncate text-sm text-muted-foreground">@{u.username}</div>

@@ -1,92 +1,84 @@
 import type { Metadata } from "next"
-import { connection } from "next/server"
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
-import { ProfileSkeleton, ProfileView } from "@/components/profile/profile-view"
-import { PostSkeleton } from "@/components/feed/post-card"
-import { MockMeOr404 } from "@/components/profile/mock-me-or-404"
+import Link from "next/link"
+import { getSupabaseServerClient } from "@/lib/supabase/server"
+import { UserAvatar } from "@/components/user-avatar"
 import { isMockMode } from "@/lib/env"
-import { getProfileByUsername, getProfilePage, getUserCommunities } from "@/lib/queries"
-import { communities, currentUser, followingIds, getUserByUsername, photos, postsByUser, users } from "@/lib/mock-data"
-import type { Post } from "@/types"
+import { getUserByUsername, users } from "@/lib/mock-data"
 
-export async function generateMetadata({ params }: PageProps<"/[username]">): Promise<Metadata> {
-  // лише під час запиту: Supabase читає сесію (Date.now()) — у пререндері це заборонено
-  await connection()
-  const { username } = await params
-  const handle = decodeURIComponent(username)
-  const user = isMockMode ? getUserByUsername(handle) : await getProfileByUsername(handle)
-  return { title: user ? `${user.name} (@${user.username})` : "Профіль не знайдено" }
-}
+export const metadata: Metadata = { title: "Читає" }
 
-/** Фото з дописів на стіні (Supabase) */
-const photosFrom = (posts: Post[]) =>
-  posts.flatMap((p) => p.media.flatMap((m) => (m.type === "image" ? [m.url] : []))).slice(0, 30)
-
-async function Profile({ params }: { params: PageProps<"/[username]">["params"] }) {
-  await connection()
-  const { username } = await params
-  const handle = decodeURIComponent(username)
-
-  if (!isMockMode) {
-    const data = await getProfilePage(handle)
-    if (!data) notFound()
-    const userCommunities = await getUserCommunities(data.user.id)
-    return (
-      <ProfileView
-        user={data.user}
-        isMe={data.isMe}
-        following={data.following}
-        requested={data.requested}
-        posts={data.posts}
-        friends={data.friends}
-        top4Users={data.top4}
-        photos={photosFrom(data.posts)}
-        communities={userCommunities}
-      />
-    )
-  }
-
-  const user = getUserByUsername(handle)
-  if (!user) {
-    return (
-      <MockMeOr404
-        username={handle}
-        user={currentUser}
-        posts={postsByUser(currentUser.id)}
-        friends={users.filter((u) => !u.isPrivate)}
-        photos={photos}
-        communities={communities.filter((c) => c.role)}
-      />
-    )
-  }
-
-  const isMe = user.id === currentUser.id
+export default function FollowingPage({ params }: { params: Promise<{ username: string }> }) {
   return (
-    <ProfileView
-      user={user}
-      isMe={isMe}
-      following={followingIds.has(user.id)}
-      posts={postsByUser(user.id)}
-      friends={users.filter((u) => u.id !== user.id && !u.isPrivate)}
-      photos={photos}
-      communities={communities.filter((c) => c.role)}
-    />
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Завантаження…</div>}>
+      <Following params={params} />
+    </Suspense>
   )
 }
 
-export default function ProfilePage({ params }: PageProps<"/[username]">) {
+async function Following({ params }: { params: Promise<{ username: string }> }) {
+  const { username } = await params
+  const handle = decodeURIComponent(username)
+
+  if (isMockMode) {
+    const user = getUserByUsername(handle)
+    if (!user) notFound()
+    const list = users.filter((u) => u.id !== user.id).slice(0, 15)
+    return <List title={`@${handle} читає`} users={list} />
+  }
+
+  const supabase = await getSupabaseServerClient()
+  if (!supabase) return <p className="p-4 text-sm text-muted-foreground">Немає підключення</p>
+
+  const { data: profile } = await supabase.from("profiles").select("id, username, hide_following").eq("username", handle).maybeSingle()
+  if (!profile) notFound()
+
+  const { data: claims } = await supabase.auth.getClaims()
+  const isMe = claims?.claims?.sub === profile.id
+
+  if (profile.hide_following && !isMe) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">Цей користувач приховав список тих, кого читає.</p>
+      </div>
+    )
+  }
+
+  const { data: followRows } = await supabase
+    .from("follows")
+    .select("following_id")
+    .eq("follower_id", profile.id)
+    .eq("status", "accepted")
+    .limit(200)
+
+  const ids = (followRows ?? []).map((r) => r.following_id)
+  let list: { id: string; username: string; display_name: string | null; avatar_url: string | null }[] = []
+
+  if (ids.length) {
+    const { data: people } = await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", ids)
+    list = people ?? []
+  }
+
+  return <List title={`@${handle} читає`} users={list} />
+}
+
+function List({ title, users }: { title: string; users: { id: string; username: string; display_name?: string | null; avatar_url?: string | null; name?: string }[] }) {
   return (
-    <Suspense
-      fallback={
-        <>
-          <ProfileSkeleton />
-          <PostSkeleton />
-          <PostSkeleton media />
-        </>
-      }
-    >
-      <Profile params={params} />
-    </Suspense>
+    <div className="mx-auto max-w-lg px-4 py-6">
+      <h1 className="text-xl font-semibold">{title}</h1>
+      <div className="mt-4 divide-y">
+        {users.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Поки нікого</p>}
+        {users.map((u) => (
+          <Link key={u.id} href={`/${u.username}`} className="flex items-center gap-3 py-3 hover:bg-subtle">
+            <UserAvatar user={{ username: u.username, name: u.display_name ?? u.name ?? u.username, avatarUrl: u.avatar_url }} size="md" />
+            <div className="min-w-0">
+              <div className="truncate font-medium">{u.display_name || u.name || u.username}</div>
+              <div className="truncate text-sm text-muted-foreground">@{u.username}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
   )
 }
