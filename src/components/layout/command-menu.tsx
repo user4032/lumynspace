@@ -20,6 +20,7 @@ import { communities, trends, users } from "@/lib/mock-data"
 import { isMockMode } from "@/lib/env"
 import { useMe, useViewer } from "@/lib/viewer-store"
 import { quickSearch } from "@/lib/actions/search"
+import { VerifiedBadge } from "@/components/verified-badge"
 
 type Remote = Awaited<ReturnType<typeof quickSearch>>
 const EMPTY: Remote = { people: [], communities: [], posts: [] }
@@ -134,7 +135,7 @@ function CommandMenu({ open, setOpen }: Ctx) {
           {people.map((u) => (
             <CommandItem key={u.id} value={`user ${u.name} ${u.username}`} keywords={found.people.some((f) => f.id === u.id) ? [q] : undefined} onSelect={() => run(() => router.push(`/${u.username}`))}>
               <UserAvatar user={u} size="xs" />
-              <span>{u.name}</span>
+              <span className="flex items-center gap-1">{u.name}{"verified" in u && u.verified && <VerifiedBadge className="size-3.5" />}</span>
               <span className="text-muted-foreground">@{u.username}</span>
             </CommandItem>
           ))}

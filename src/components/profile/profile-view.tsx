@@ -4,7 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
 import { motion } from "framer-motion"
-import type { Community, Post, User } from "@/types"
+import type { Community, CommunityRole, Post, User } from "@/types"
 import {
   Ban,
   CalendarDays,
@@ -17,15 +17,19 @@ import {
   Palette,
   Pencil,
   Quote,
+  Repeat2,
   Timer,
   VolumeX,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { CommunityIcon } from "@/components/community-icon"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
+import { StatusIcon, isStatusIconKey } from "@/components/status-icon"
 import { Composer } from "@/components/feed/composer"
 import { PostCard } from "@/components/feed/post-card"
+import { PhotoLightbox } from "@/components/feed/photo-lightbox"
 import { formatCount, formatJoined, plural } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { accentVars, DEFAULT_ACCENT } from "@/lib/accent"
@@ -48,11 +52,18 @@ import { isMockMode } from "@/lib/env"
 import { FollowButton } from "./follow-button"
 import { ProfileBanner } from "./profile-banner"
 import { NowPlaying, TopFour } from "./profile-widgets"
-import { SpotifyNow } from "./spotify-now"
+import { LastfmNow } from "./lastfm-now"
 
-type Tab = "wall" | "photos" | "friends" | "communities"
+type Tab = "wall" | "reposts" | "photos" | "friends" | "communities"
+const COMMUNITY_ROLE_LABEL: Record<CommunityRole, string> = {
+  owner: "Власник",
+  admin: "Адмін",
+  mod: "Модератор",
+  member: "Учасник",
+}
 const TABS: { value: Tab; label: string }[] = [
   { value: "wall", label: "Стіна" },
+  { value: "reposts", label: "Репости" },
   { value: "photos", label: "Фото" },
   { value: "friends", label: "Друзі" },
   { value: "communities", label: "Спільноти" },
@@ -139,6 +150,7 @@ export function ProfileView({
   following = false,
   requested = false,
   posts,
+  reposts = [],
   friends,
   top4Users = [],
   photos,
@@ -150,6 +162,8 @@ export function ProfileView({
   /** Supabase: запит на підписку чекає схвалення */
   requested?: boolean
   posts: Post[]
+  /** репости й цитування (окрема вкладка) */
+  reposts?: Post[]
   friends: User[]
   /** Supabase: профілі з widgets.top4 (у демо Топ-4 бере людей із мок-даних) */
   top4Users?: User[]
@@ -164,6 +178,9 @@ export function ProfileView({
   const now = useNow()
   const [tab, setTab] = useState<Tab>("wall")
   const [wall, setWall] = useState(posts)
+  // вкладка «Фото»: перегляд як у постах (лайтбокс зі свайпом)
+  const [photoIndex, setPhotoIndex] = useState<number | null>(null)
+  const photoList = isMockMode ? [...photos, ...photos] : photos
   const isBlocked = !isMe && blocked.includes(user.id)
   const locked = !isMe && user.isPrivate && !following
   const accent = user.accentColor ?? DEFAULT_ACCENT
@@ -189,7 +206,7 @@ export function ProfileView({
       {/* Шапка профілю */}
       <div className="px-4 pb-4">
         <div className="flex items-end justify-between">
-          <span className="relative -mt-14">
+          <span className="relative z-10 -mt-14">
             <span
               aria-hidden
               className="absolute -inset-1.5 rounded-full opacity-70 blur-md"
@@ -242,7 +259,11 @@ export function ProfileView({
               background: "color-mix(in oklab, var(--accent-user) 8%, transparent)",
             }}
           >
-            <Quote className="size-3.5 shrink-0 text-[var(--accent-user)]" />
+            {isStatusIconKey(user.statusIcon) ? (
+              <StatusIcon icon={user.statusIcon} className="size-3.5 text-[var(--accent-user)]" />
+            ) : (
+              <Quote className="size-3.5 shrink-0 text-[var(--accent-user)]" />
+            )}
             <span className="truncate">{user.status}</span>
             {user.statusExpiresAt && (
               <span className="inline-flex shrink-0 items-center gap-1 font-mono text-[11px] text-muted-foreground">
@@ -283,7 +304,7 @@ export function ProfileView({
         {!isBlocked && !locked && (user.widgets?.top4?.length || user.widgets?.now_playing || isMe) ? (
           <div className="mt-4 grid gap-2 sm:grid-cols-[1.3fr_1fr]">
             <TopFour ids={user.widgets?.top4} pool={[...top4Users, ...friends, ...(isMe ? people : [])]} />
-            {isMe ? <SpotifyNow userId={user.id} /> : <NowPlaying track={user.widgets?.now_playing} />}
+            <LastfmNow handle={user.username} fallback={<NowPlaying track={user.widgets?.now_playing} />} />
           </div>
         ) : null}
       </div>
@@ -313,7 +334,10 @@ export function ProfileView({
                 key={t.value}
                 role="tab"
                 aria-selected={tab === t.value}
-                onClick={() => setTab(t.value)}
+                onClick={() => {
+                  setTab(t.value)
+                  setPhotoIndex(null)
+                }}
                 className={cn(
                   "relative h-12 flex-1 text-sm font-medium transition-colors hover:bg-subtle",
                   tab === t.value ? "text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -352,6 +376,21 @@ export function ProfileView({
             </>
           )}
 
+          {tab === "reposts" && (
+            <>
+              {reposts.length === 0 && (
+                <GateCard
+                  icon={<Repeat2 className="size-6" />}
+                  title="Репостів поки немає"
+                  text={isMe ? "Тут з'являться дописи, які ви поширили." : "Ця людина ще нічого не поширювала."}
+                />
+              )}
+              {reposts.map((p, i) => (
+                <PostCard key={p.clientKey ?? p.id} post={p} index={i} />
+              ))}
+            </>
+          )}
+
           {tab === "photos" && (
             <div className="grid grid-cols-3 gap-1 p-1">
               {photos.length === 0 && !isMockMode && (
@@ -360,11 +399,25 @@ export function ProfileView({
                 </div>
               )}
               {(isMockMode ? [...photos, ...photos] : photos).map((src, i) => (
-                <div key={i} className="relative aspect-square overflow-hidden bg-muted">
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Відкрити фото ${i + 1}`}
+                  onClick={() => setPhotoIndex(i)}
+                  className="relative aspect-square cursor-zoom-in overflow-hidden bg-muted"
+                >
                   <Image src={src} alt="" fill sizes="220px" unoptimized={!isMockMode} className="object-cover transition-transform duration-300 hover:scale-105" />
-                </div>
+                </button>
               ))}
             </div>
+          )}
+
+          {tab === "photos" && photoIndex !== null && photoList[photoIndex] && (
+            <PhotoLightbox
+              photos={photoList.map((url) => ({ url }))}
+              index={photoIndex}
+              onClose={() => setPhotoIndex(null)}
+            />
           )}
 
           {tab === "friends" && friends.length === 0 && (
@@ -399,17 +452,14 @@ export function ProfileView({
               {communities.map((c) => (
                 <li key={c.id}>
                   <Link href={`/c/${c.slug}`} className="flex items-center gap-3 border-b px-4 py-3 transition-colors hover:bg-subtle">
-                    <span
-                      className="size-10 shrink-0 rounded-lg ring-1 ring-inset ring-foreground/10"
-                      style={{ background: `linear-gradient(135deg, oklch(0.75 0.13 ${c.hue}), oklch(0.5 0.17 ${c.hue + 40}))` }}
-                    />
+                    <CommunityIcon community={c} />
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-medium">{c.name}</span>
                       <span className="block text-xs text-muted-foreground">
                         {formatCount(c.members)} {plural(c.members, ["учасник", "учасники", "учасників"])}
                       </span>
                     </span>
-                    {c.role && c.role !== "member" && <Badge variant="outline" className="capitalize">{c.role}</Badge>}
+                    {c.role && c.role !== "member" && <Badge variant="outline">{COMMUNITY_ROLE_LABEL[c.role]}</Badge>}
                   </Link>
                 </li>
               ))}

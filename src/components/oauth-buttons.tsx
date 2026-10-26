@@ -17,9 +17,11 @@ export function OAuthButtons() {
     const supabase = getSupabaseBrowserClient()
     if (!supabase) return
     setPending(provider)
+    // після входу повертаємось туди, звідки прийшли (?next= від проксі), а не на головну
+    const next = new URLSearchParams(window.location.search).get("next") ?? "/"
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/` },
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
     })
     if (error) {
       toast.error("Не вдалося увійти", { description: error.message })

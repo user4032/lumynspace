@@ -10,7 +10,11 @@ export const metadata = pageMeta(
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Умови використання" updated="12 жовтня 2026 р.">
+    <LegalPage
+      title="Умови використання"
+      updated="24 жовтня 2026 р."
+      intro="Домовленість між вами та Lumyn людською мовою: акаунт, ваш контент, вік 16+ і що буває при порушеннях. Читається за 3 хвилини."
+    >
       <p>
         Ці Умови регулюють використання сервісу Lumyn («Сервіс»). Реєструючись або
         користуючись Сервісом, ви погоджуєтесь з ними.
@@ -64,7 +68,7 @@ export default function TermsPage() {
 
       <h2>7. Контакти</h2>
       <p>
-        Питання щодо Умов: <a href="mailto:support@lumyn.space">support@lumyn.space</a>
+        Питання щодо Умов: <a href="https://t.me/d4nys" target="_blank" rel="noopener noreferrer">Telegram @d4nys</a>
       </p>
     </LegalPage>
   )

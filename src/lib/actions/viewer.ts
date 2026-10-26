@@ -4,6 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server"
 import type { BannerStyle, DmPolicy, FeedPrefs, ReportReason } from "@/types"
 import type { Json, ProfileRow, ReportTarget } from "@/types/database"
 import type { ActionResult } from "./posts"
+import { isStatusIconKey } from "@/components/status-icon"
 
 const mockDelay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
 
@@ -30,10 +31,13 @@ export async function updateProfile(input: {
   bio?: string
   status?: string
   statusExpiresAt?: string | null
+  statusIcon?: string | null
   accentColor?: string
   bannerStyle?: BannerStyle
   top4?: string[]
   nowPlaying?: { title: string; artist: string } | null
+  /** нік Last.fm ("" — відв'язати) */
+  lastfmUsername?: string
   /** публічні URL зі Storage (avatars/covers) */
   avatarUrl?: string | null
   coverUrl?: string | null
@@ -55,15 +59,31 @@ export async function updateProfile(input: {
   if (input.bannerStyle) patch.banner_style = input.bannerStyle
   if (input.avatarUrl !== undefined) patch.avatar_url = input.avatarUrl
   if (input.coverUrl !== undefined) patch.cover_url = input.coverUrl
-  if (input.top4 !== undefined || input.nowPlaying !== undefined) {
+  if (input.lastfmUsername && !/^[A-Za-z][\w-]{1,14}$/.test(input.lastfmUsername.trim()))
+    return { ok: false, error: "Некоректний нік Last.fm" }
+  if (input.top4 !== undefined || input.nowPlaying !== undefined || input.lastfmUsername !== undefined) {
     const { data } = await supabase.from("profiles").select("widgets").eq("id", me).single()
     const widgets = { ...((data?.widgets as Record<string, Json>) ?? {}) }
     if (input.top4 !== undefined) widgets.top4 = input.top4
     if (input.nowPlaying !== undefined) widgets.now_playing = input.nowPlaying
+    if (input.lastfmUsername !== undefined) {
+      if (input.lastfmUsername.trim()) widgets.lastfm_username = input.lastfmUsername.trim()
+      else delete widgets.lastfm_username
+    }
+    // старі токени Spotify більше не зберігаємо
+    delete widgets.spotify_token
+    delete widgets.spotify_refresh
     patch.widgets = widgets
   }
-  const { error } = await supabase.from("profiles").update(patch).eq("id", me)
-  return error ? { ok: false, error: error.message } : { ok: true }
+  const { error } = Object.keys(patch).length ? await supabase.from("profiles").update(patch).eq("id", me) : { error: null }
+  if (error) return { ok: false, error: error.message }
+  if (input.statusIcon !== undefined) {
+    const icon = input.statusIcon && isStatusIconKey(input.statusIcon) ? input.statusIcon : null
+    // окремий запит: колонка з міграції 0009
+    const { error: iconErr } = await supabase.from("profiles").update({ status_icon: icon } as never).eq("id", me)
+    if (iconErr) return { ok: false, error: "Іконку статусу не збережено: запустіть apply-pending-3.sql" }
+  }
+  return { ok: true }
 }
 
 export async function saveFeedPrefs(prefs: FeedPrefs): Promise<ActionResult> {

@@ -14,6 +14,22 @@ type State = {
   error: string | null
   /** id першої сторінки — лише їм потрібна «каскадна» поява */
   firstPage: Set<string>
+  /** скільки постів зверху новіші за останній побачений візит */
+  newCount: number
+}
+
+const seenKey = (tab: FeedTab) => `lumyn:feed-head:${tab}`
+
+/** Скільки верхніх постів новіші за «останній побачений» час цієї вкладки */
+function newSinceSeen(tab: FeedTab, page: Post[]): number {
+  if (typeof window === "undefined" || !page.length) return 0
+  try {
+    const seen = window.localStorage.getItem(seenKey(tab))
+    if (!seen) return 0
+    return Math.min(page.filter((p) => p.createdAt > seen && !p.id.startsWith("local-")).length, page.length)
+  } catch {
+    return 0
+  }
 }
 
 /**
@@ -28,7 +44,7 @@ export function useInfiniteFeed(tab: FeedTab) {
   const hiddenPosts = useViewer((s) => s.hiddenPosts)
   const hiddenAuthors = useMemo(() => [...blocked, ...muted], [blocked, muted])
 
-  const [state, setState] = useState<State>({ posts: [], cursor: 0, loading: true, error: null, firstPage: new Set() })
+  const [state, setState] = useState<State>({ posts: [], cursor: 0, loading: true, error: null, firstPage: new Set(), newCount: 0 })
   const loadingRef = useRef(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const stateRef = useRef(state)
@@ -63,6 +79,7 @@ export function useInfiniteFeed(tab: FeedTab) {
             loading: false,
             error: null,
             firstPage: reset ? new Set(page.posts.map((p) => p.id)) : s.firstPage,
+            newCount: reset ? newSinceSeen(tab, page.posts) : s.newCount,
           }
         })
       } catch (e) {
@@ -120,6 +137,21 @@ export function useInfiniteFeed(tab: FeedTab) {
     setState((s) => ({ ...s, posts: [post, ...s.posts] }))
   }, [])
 
+  /** «Побачив нові» — запам'ятовуємо голову стрічки й ховаємо лічильник */
+  const clearNew = useCallback(() => {
+    setState((s) => {
+      const head = s.posts.find((p) => !p.id.startsWith("local-"))
+      if (head) {
+        try {
+          window.localStorage.setItem(seenKey(tab), head.createdAt)
+        } catch {
+          /* приватний режим */
+        }
+      }
+      return { ...s, newCount: 0 }
+    })
+  }, [tab])
+
   /** оптимістичний допис → збережений (або прибрати, якщо не вдалося) */
   const settle = useCallback((localId: string, post: Post | null) => {
     setState((s) => ({
@@ -144,5 +176,7 @@ export function useInfiniteFeed(tab: FeedTab) {
     prepend,
     settle,
     retry: () => loadMore(state.cursor),
+    newCount: state.newCount,
+    clearNew,
   }
 }

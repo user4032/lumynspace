@@ -2,33 +2,44 @@
 
 import Link from "next/link"
 import { useEffect, useState, ViewTransition } from "react"
+import { useSearchParams } from "next/navigation"
 import type { Post } from "@/types"
+import { Quote } from "lucide-react"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { FollowButton } from "@/components/profile/follow-button"
+import { Button } from "@/components/ui/button"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { formatCount, formatFullDate, plural } from "@/lib/format"
 import { GLOW, lifeFraction } from "@/lib/glow"
 import { accentVars } from "@/lib/accent"
 import { cn } from "@/lib/utils"
 import { usePostLight } from "@/hooks/usePostLight"
+import { usePostViews } from "@/hooks/usePostViews"
 import { useNow } from "@/hooks/useNow"
 import { useMe } from "@/lib/viewer-store"
 import { Composer } from "./composer"
 import { PostActions } from "./post-actions"
-import { LightFlash, PostCard, PostMediaView, useSpotlight } from "./post-card"
+import { LightFlash, PostCard, PostEditBox, PostMediaView, QuotedPost, useSpotlight } from "./post-card"
 import { PostMenu } from "./post-menu"
 import { CloseFriendsChip, GlowBadge, PermanentBadge } from "./post-meta"
 import { RichText } from "./rich-text"
 
-export function PostDetail({ post, replies: initialReplies }: { post: Post; replies: Post[] }) {
+export function PostDetail({ post, replies: initialReplies, guest = false }: { post: Post; replies: Post[]; guest?: boolean }) {
   const [replies, setReplies] = useState(initialReplies)
   const [flash, setFlash] = useState(0)
+  const [replyFocus, setReplyFocus] = useState(0)
+  const [editing, setEditing] = useState(false)
+  const [edited, setEdited] = useState<Post | null>(null)
+  const shown = edited ?? post
+  // ?quote=1 — режим цитування (пункт «Цитувати» в меню допису)
+  const searchParams = useSearchParams()
+  const [quoteMode, setQuoteMode] = useState(searchParams.get("quote") === "1")
   const light = usePostLight(post, () => setFlash((f) => f + 1))
   const now = useNow()
   const me = useMe()
-  const { ref, onPointerMove } = useSpotlight<HTMLElement>()
-  const views = post.views ?? 0
+  const { ref: spotRef, onPointerMove } = useSpotlight<HTMLElement>()
+  const { views, ref: viewsRef } = usePostViews(post)
   const isGlow = light.mode === "glow"
   const life = isGlow ? lifeFraction(light.expiresAt, now) : 1
 
@@ -36,7 +47,10 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
     <>
       <ViewTransition name={`post-${post.id}`} share="morph" default="none">
         <article
-          ref={ref}
+          ref={(el: HTMLElement | null) => {
+            spotRef.current = el
+            viewsRef.current = el
+          }}
           onPointerMove={onPointerMove}
           style={accentVars(post.author.accentColor)}
           className="spotlight group/post relative overflow-hidden border-b px-4 pt-4"
@@ -53,7 +67,7 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
               <p className="text-sm text-muted-foreground">@{post.author.username}</p>
             </div>
             {post.author.id !== me.id && <FollowStatusButton userId={post.author.id} />}
-            <PostMenu post={post} className="ml-0 opacity-100" />
+            <PostMenu post={post} className="ml-0 opacity-100" onEdit={() => setEditing(true)} />
           </div>
 
           {(isGlow || post.audience === "close_friends" || (post.mode === "glow" && !isGlow)) && (
@@ -70,16 +84,32 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
           )}
 
           <div className={cn(isGlow && "glow-fade")} style={isGlow ? ({ "--life": life } as React.CSSProperties) : undefined}>
-            {post.content && (
-              <p className="mt-4 text-[17px] leading-[1.6] break-words whitespace-pre-wrap">
-                <RichText text={post.content} />
-              </p>
+            {editing ? (
+              <div className="mt-4">
+                <PostEditBox
+                  post={shown}
+                  onDone={(saved) => {
+                    setEditing(false)
+                    if (saved) setEdited(saved)
+                  }}
+                />
+              </div>
+            ) : (
+              <>
+                {shown.content && (
+                  <p className="mt-4 text-[17px] leading-[1.6] break-words whitespace-pre-wrap">
+                    <RichText text={shown.content} />
+                  </p>
+                )}
+                <PostMediaView post={post} />
+                {post.quote && <QuotedPost quote={post.quote} />}
+              </>
             )}
-            <PostMediaView post={post} />
           </div>
 
           <p className="mt-4 text-sm text-muted-foreground">
             <time dateTime={post.createdAt}>{formatFullDate(post.createdAt)}</time>
+            {shown.edited && <span className="ml-1.5">· змінено</span>}
             <span className="mx-1.5">·</span>
             <span className="font-medium text-foreground tabular">{formatCount(views)}</span>{" "}
             {plural(views, ["перегляд", "перегляди", "переглядів"])}
@@ -92,7 +122,16 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
           </div>
 
           <div className="py-1">
-            <PostActions post={post} light={light} size="lg" />
+            {guest ? (
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-subtle/60 p-4">
+                <p className="text-sm text-muted-foreground">Відповідати, світити й зберігати — після входу.</p>
+                <Button asChild size="sm" className="rounded-full">
+                  <Link href="/login">Увійти в Lumyn</Link>
+                </Button>
+              </div>
+            ) : (
+              <PostActions post={post} light={light} size="lg" views={views} onReply={() => setReplyFocus((n) => n + 1)} />
+            )}
           </div>
 
           {isGlow && (
@@ -105,19 +144,43 @@ export function PostDetail({ post, replies: initialReplies }: { post: Post; repl
 
       <ViewTransition enter="thread-in" default="none">
         <div>
-          <Composer
-            compact
-            replyTo={post.id}
-            placeholder={`Відповісти @${post.author.username}…`}
-            submitLabel="Відповісти"
-            onPublish={(p) => setReplies((r) => [p, ...r])}
-            onSettled={(localId, saved) =>
-              setReplies((r) => (saved ? r.map((p) => (p.id === localId ? saved : p)) : r.filter((p) => p.id !== localId)))
-            }
-          />
-          {replies.map((r, i) => (
-            <PostCard key={r.clientKey ?? r.id} post={r} index={i} animate={Boolean(r.clientKey) || r.id.startsWith("local-")} />
-          ))}
+          {guest ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-sm text-muted-foreground">Відповіді бачать лише користувачі Lumyn</p>
+              <Button asChild variant="outline" size="sm" className="mt-3 rounded-full">
+                <Link href={`/login?next=/post/${post.id}`}>Увійти, щоб читати відповіді</Link>
+              </Button>
+            </div>
+          ) : quoteMode ? (
+            <div className="border-b px-4 py-3">
+              <p className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Quote className="size-3.5" /> Цитуєте допис @{post.author.username}
+              </p>
+              <Composer
+                quote={post}
+                onCancelQuote={() => setQuoteMode(false)}
+                placeholder="Додайте свої слова до цитати…"
+                submitLabel="Цитувати"
+              />
+            </div>
+          ) : (
+            <>
+              <Composer
+                compact
+                replyTo={post.id}
+                focusSignal={replyFocus}
+                placeholder={`Відповісти @${post.author.username}…`}
+                submitLabel="Відповісти"
+                onPublish={(p) => setReplies((r) => [p, ...r])}
+                onSettled={(localId, saved) =>
+                  setReplies((r) => (saved ? r.map((p) => (p.id === localId ? saved : p)) : r.filter((p) => p.id !== localId)))
+                }
+              />
+              {replies.map((r, i) => (
+                <PostCard key={r.clientKey ?? r.id} post={r} index={i} animate={Boolean(r.clientKey) || r.id.startsWith("local-")} />
+              ))}
+            </>
+          )}
         </div>
       </ViewTransition>
     </>

@@ -1,22 +1,44 @@
 "use client"
 
-import { useOptimistic, useState, useTransition } from "react"
+import { useEffect, useOptimistic, useState, useTransition } from "react"
 import { motion } from "framer-motion"
 import { Check } from "lucide-react"
 import { toast } from "sonner"
 import type { Poll } from "@/types"
-import { votePoll } from "@/lib/actions/posts"
+import { getPollState, votePoll } from "@/lib/actions/posts"
 import { formatCount, plural } from "@/lib/format"
 import { cn } from "@/lib/utils"
+
+/** Скільки лишилось до кінця опитування («» — без дати завершення) */
+function endsLabel(endsAt?: string): string {
+  if (!endsAt) return ""
+  const t = Date.parse(endsAt)
+  if (Number.isNaN(t)) return ""
+  const hours = Math.ceil((t - Date.now()) / 3_600_000)
+  return hours <= 0 ? " · Завершено" : ` · ${formatCount(hours)} ${plural(hours, ["година", "години", "годин"])} до завершення`
+}
 
 export function PollView({ postId, poll }: { postId: string; poll: Poll }) {
   const [state, setState] = useState(poll)
   const [optimistic, setOptimistic] = useOptimistic(state)
   const [, startTransition] = useTransition()
 
+  // реальні голоси + мій вибір з БД (у стрічці приходять нулі)
+  useEffect(() => {
+    if (postId.startsWith("local-")) return
+    let cancelled = false
+    void getPollState(postId, poll.options.length).then((res) => {
+      if (!cancelled && res.ok && res.data) setState((s) => ({ ...s, ...res.data }))
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- опитування не змінює варіанти
+  }, [postId])
+
   const total = optimistic.votes.reduce((a, b) => a + b, 0)
   const voted = optimistic.votedIndex != null
-  const max = Math.max(...optimistic.votes)
+  const max = Math.max(...optimistic.votes, 0)
 
   const vote = (i: number) => {
     if (voted) return
@@ -27,8 +49,8 @@ export function PollView({ postId, poll }: { postId: string; poll: Poll }) {
     }
     startTransition(async () => {
       setOptimistic(next)
-      const res = await votePoll(postId, i)
-      if (res.ok) setState(next)
+      const res = await votePoll(postId, i, poll.options.length)
+      if (res.ok) setState(res.data ? { ...next, ...res.data } : next)
       else toast.error(res.error)
     })
   }
@@ -67,7 +89,7 @@ export function PollView({ postId, poll }: { postId: string; poll: Poll }) {
       })}
       <p className="pt-1 text-xs text-muted-foreground">
         {formatCount(total)} {plural(total, ["голос", "голоси", "голосів"])}
-        {poll.endsAt ? " · 20 год до завершення" : " · Завершено"}
+        {endsLabel(poll.endsAt)}
       </p>
     </div>
   )

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { hashString } from "@/lib/format"
+import { frameActive } from "@/lib/frames"
+import { hiResAvatarUrl } from "@/lib/avatar"
 import type { User } from "@/types"
 
 const dots = {
@@ -57,21 +59,38 @@ export function UserAvatar({
   size = "lg",
   className,
   showOnline = false,
+  frame,
+  frameExpiresAt,
 }: {
-  user: Pick<User, "username" | "name" | "avatarUrl" | "online">
+  user: Pick<User, "username" | "name" | "avatarUrl" | "online"> & Partial<Pick<User, "frame" | "frameExpiresAt">>
   size?: keyof typeof sizes
   className?: string
   showOnline?: boolean
+  /** явна рамка (перекриває user.frame) */
+  frame?: string | null
+  frameExpiresAt?: string | null
 }) {
   const [broken, setBroken] = useState<string | null>(null)
-  const src = user.avatarUrl && broken !== user.avatarUrl ? user.avatarUrl : null
+  const rawAvatar = user.avatarUrl ?? null
+  // Google віддає 96×96 за замовчуванням — просимо 512×512, інакше аватар мильний
+  const src = rawAvatar && broken !== rawAvatar ? hiResAvatarUrl(rawAvatar) : null
   const imgRef = useRef<HTMLImageElement>(null)
   // картинка могла впасти ще до гідрації, тоді onError не спрацює
   useEffect(() => {
     const img = imgRef.current
-    if (src && img?.complete && img.naturalWidth === 0) setBroken(src)
-  }, [src])
-  return (
+    if (src && img?.complete && img.naturalWidth === 0) setBroken(rawAvatar)
+  }, [src, rawAvatar])
+  // час перевіряємо лише після монтування: Date.now() у пререндері заборонений
+  const [nowMs, setNowMs] = useState(0)
+  useEffect(() => {
+    setNowMs(Date.now())
+    const t = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  // рамка: явний проп > поле користувача (автори постів, профілі, чат)
+  const effFrame = frame ?? user.frame ?? null
+  const activeFrame = effFrame && frameActive(effFrame, nowMs ? (frameExpiresAt ?? user.frameExpiresAt) : null) ? effFrame : null
+  const avatar = (
     <span className={cn("relative inline-flex shrink-0", sizes[size], className)}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- аватари з будь-яких доменів (GitHub, Google)
@@ -80,7 +99,7 @@ export function UserAvatar({
           src={src}
           alt=""
           referrerPolicy="no-referrer"
-          onError={() => setBroken(src)}
+          onError={() => setBroken(rawAvatar)}
           className="size-full rounded-full object-cover"
         />
       ) : (
@@ -92,8 +111,23 @@ export function UserAvatar({
         />
       )}
       <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-foreground/10" />
-      {showOnline && user.online && (
+      {!activeFrame && showOnline && user.online && (
         <span className={cn("absolute right-0 bottom-0 rounded-full bg-emerald-500 ring-background", dots[size])} />
+      )}
+    </span>
+  )
+  if (!activeFrame) return avatar
+  return (
+    <span className={cn("avatar-frame shrink-0", `frame-${activeFrame}`)}>
+      <span className="avatar-inner">{avatar}</span>
+      {/* статус — прямий нащадок рамки, щоб не ховався під її оверлеєм */}
+      {showOnline && user.online && (
+        <span
+          className={cn(
+            "avatar-status absolute right-0 bottom-0 rounded-full bg-emerald-500 ring-background",
+            dots[size],
+          )}
+        />
       )}
     </span>
   )

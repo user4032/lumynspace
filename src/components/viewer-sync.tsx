@@ -28,13 +28,20 @@ export function ViewerSync() {
       const me = auth.user?.id
       if (!me || cancelled) return
 
-      const [profileRes, closeRes, blocksRes, mutesRes, followsRes] = await Promise.all([
+      // 0023: протухлі рамки зникають з колекції, у сповіщення падає frame_expired
+      await supabase.rpc("sync_expired_frames")
+
+      const [profileRes, closeRes, blocksRes, mutesRes, followsRes, bookmarksRes] = await Promise.all([
         supabase.from("profiles").select(`${PUBLIC_PROFILE_COLUMNS}, feed_prefs, birth_year, onboarded_at, hide_following`).eq("id", me).maybeSingle(),
         supabase.from("close_friends").select("friend_id").eq("owner_id", me),
         supabase.from("blocks").select("blocked_id").eq("blocker_id", me),
         supabase.from("mutes").select("muted_id").eq("muter_id", me),
         supabase.from("follows").select("following_id").eq("follower_id", me).eq("status", "accepted").limit(PEOPLE_LIMIT),
+        // 0011: якщо міграцію ще не запускали — просто порожній список
+        supabase.from("bookmarks").select("post_id").eq("user_id", me).order("created_at", { ascending: false }).limit(500),
       ])
+      // status_icon окремо: якщо міграцію 0009 ще не запущено, решта профілю не ламається
+      const iconRes = await supabase.from("profiles").select("status_icon" as "id").eq("id", me).maybeSingle()
       if (cancelled) return
       const row = profileRes.data as (PublicProfileRow & { feed_prefs: unknown; birth_year: number | null; onboarded_at: string | null; hide_following?: boolean }) | null
       if (!row) return
@@ -43,6 +50,7 @@ export function ViewerSync() {
       const blocked = (blocksRes.data ?? []).map((r) => r.blocked_id)
       const muted = (mutesRes.data ?? []).map((r) => r.muted_id)
       const followingIds = (followsRes.data ?? []).map((r) => r.following_id)
+      const bookmarks = (bookmarksRes.data ?? []).map((r) => r.post_id)
       const widgets = readWidgets(row.widgets)
 
       const ids = [...new Set([...followingIds, ...closeFriends, ...blocked, ...muted, ...(widgets.top4 ?? [])])].filter((id) => id !== me)
@@ -62,16 +70,18 @@ export function ViewerSync() {
           bio: self.bio,
           status: self.status,
           statusExpiresAt: self.statusExpiresAt ?? null,
+          statusIcon: iconRes.error ? null : ((iconRes.data as { status_icon?: string | null } | null)?.status_icon ?? null),
           accentColor: row.accent_color,
           bannerStyle: row.banner_style,
           top4: widgets.top4 ?? [],
           nowPlaying: widgets.now_playing ?? null,
-          spotifyConnected: Boolean((row.widgets as { spotify_token?: string })?.spotify_token),
+          lastfmUsername: String((row.widgets as { lastfm_username?: unknown } | null)?.lastfm_username ?? ""),
         },
         feedPrefs: readFeedPrefs(row.feed_prefs),
         closeFriends,
         blocked,
         muted,
+        bookmarks,
         privacy: { isPrivate: row.is_private, dmPolicy: row.dm_policy as DmPolicy, birthYear: row.birth_year, showOnline: true, hideFollowing: row.hide_following ?? false },
         self,
         people,

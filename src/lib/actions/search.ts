@@ -9,7 +9,7 @@ export async function quickSearch(query: string) {
   const res = await searchAll(query, { people: 5, communities: 4, posts: 5 })
   // лише те, що потрібно палітрі
   return {
-    people: res.people.map((u) => ({ id: u.id, username: u.username, name: u.name, avatarUrl: u.avatarUrl ?? null })),
+    people: res.people.map((u) => ({ id: u.id, username: u.username, name: u.name, avatarUrl: u.avatarUrl ?? null, verified: u.verified ?? false })),
     communities: res.communities.map((c) => ({ id: c.id, slug: c.slug, name: c.name })),
     posts: res.posts.map((p) => ({ id: p.id, author: p.author.username, content: p.content.slice(0, 80) })),
   }

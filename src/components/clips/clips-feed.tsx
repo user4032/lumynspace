@@ -1,0 +1,187 @@
+"use client"
+
+import Link from "next/link"
+import { useEffect, useRef, useState } from "react"
+import { Clapperboard, MessageCircle, Volume2, VolumeX } from "lucide-react"
+import type { Post } from "@/types"
+import { UserAvatar } from "@/components/user-avatar"
+import { VerifiedBadge } from "@/components/verified-badge"
+import { LightButton } from "@/components/feed/light-button"
+import { ShareMenu } from "@/components/feed/post-actions"
+import { RichText } from "@/components/feed/rich-text"
+import { usePostLight } from "@/hooks/usePostLight"
+import { useNow } from "@/hooks/useNow"
+import { formatCount, timeAgo } from "@/lib/format"
+import { accentVars } from "@/lib/accent"
+import { isMockMode } from "@/lib/env"
+import { cn } from "@/lib/utils"
+
+/** Один кліп: вертикальне відео на весь екран, автовідтворення при скролі */
+function Clip({ post, index }: { post: Post; index: number }) {
+  const video = post.media.find((m) => m.type === "video")
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const [muted, setMuted] = useState(true)
+  const [flash, setFlash] = useState(0)
+  const light = usePostLight(post, () => setFlash((f) => f + 1))
+  const now = useNow()
+
+  useEffect(() => {
+    const el = videoRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting && e.intersectionRatio > 0.6) void el.play().catch(() => undefined)
+          else el.pause()
+        }
+      },
+      { threshold: [0, 0.6, 1] }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  if (video?.type !== "video") return null
+
+  const togglePlay = () => {
+    const el = videoRef.current
+    if (!el) return
+    if (el.paused) void el.play().catch(() => undefined)
+    else el.pause()
+  }
+
+  return (
+    <section
+      style={accentVars(post.author.accentColor)}
+      className="relative flex h-full w-full snap-start snap-always items-center justify-center overflow-hidden bg-black"
+    >
+      {/* спалах світла */}
+      {flash > 0 && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10"
+          style={{ boxShadow: "inset 0 0 120px -20px color-mix(in oklab, var(--glow) 60%, transparent)" }}
+        />
+      )}
+
+      {/* розмите тло-заливка: горизонтальні відео без чорних смуг */}
+      <video
+        src={video.url}
+        muted
+        loop
+        playsInline
+        autoPlay
+        preload="metadata"
+        aria-hidden
+        className="absolute inset-0 size-full scale-110 object-cover blur-2xl brightness-[0.35] saturate-150"
+      />
+      <video
+        ref={videoRef}
+        src={video.url}
+        muted={muted}
+        loop
+        playsInline
+        preload={index < 2 ? "auto" : "metadata"}
+        onClick={togglePlay}
+        className="relative h-full w-full cursor-pointer object-contain"
+      />
+
+      {/* затемнення під текстом */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/75 to-transparent" />
+
+      {/* звук */}
+      <button
+        type="button"
+        aria-label={muted ? "Увімкнути звук" : "Вимкнути звук"}
+        onClick={() => setMuted((m) => !m)}
+        className="absolute top-3 right-3 z-20 grid size-9 place-items-center rounded-full bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+      >
+        {muted ? <VolumeX className="size-4.5" /> : <Volume2 className="size-4.5" />}
+      </button>
+
+      {/* дії праворуч */}
+      <div className="absolute right-2.5 bottom-24 z-20 flex flex-col items-center gap-4 text-white">
+        <div className="flex flex-col items-center gap-1">
+          <LightButton lit={light.lit} count={light.lights} onToggle={light.toggle} size="lg" className="text-white hover:text-white" />
+        </div>
+        <Link
+          href={`/post/${post.id}`}
+          aria-label={`${formatCount(post.replies)} відповідей`}
+          className="flex flex-col items-center gap-1 transition-opacity hover:opacity-80"
+        >
+          <span className="grid size-11 place-items-center rounded-full bg-black/40 backdrop-blur">
+            <MessageCircle className="size-5.5" />
+          </span>
+          <span className="font-mono text-[11px] tabular">{formatCount(post.replies)}</span>
+        </Link>
+        <ShareMenu post={post} iconClass="size-5.5" />
+      </div>
+
+      {/* автор і опис */}
+      <div className="absolute inset-x-0 bottom-0 z-20 p-4 pb-6 pr-20 text-white">
+        <Link href={`/${post.author.username}`} className="flex items-center gap-2.5">
+          <UserAvatar user={post.author} size="lg" className="ring-2 ring-white/25" />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1 truncate text-sm font-semibold">
+              {post.author.name}
+              {post.author.verified && <VerifiedBadge className="size-3.5" />}
+            </span>
+            <span className="block truncate text-xs text-white/70">
+              @{post.author.username} · {now ? timeAgo(post.createdAt, now) : ""}
+            </span>
+          </span>
+        </Link>
+        {post.content && (
+          <p className="mt-2.5 line-clamp-2 text-sm leading-snug text-white/90">
+            <RichText text={post.content} />
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** Стрічка кліпів: вертикальний snap-скрол, як у Shorts/Reels */
+export function ClipsFeed({ posts }: { posts: Post[] }) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    // хапає клавіші ↑/↓ для перемикання кліпів
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
+      const el = containerRef.current
+      if (!el) return
+      e.preventDefault()
+      el.scrollBy({ top: (e.key === "ArrowDown" ? 1 : -1) * el.clientHeight, behavior: "smooth" })
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
+
+  if (!posts.length)
+    return (
+      <div className="flex h-[calc(100dvh-3.5rem)] flex-col items-center justify-center gap-3 px-6 text-center">
+        <span className={cn("grid size-14 place-items-center rounded-2xl border bg-subtle", isMockMode && "opacity-70")}>
+          <Clapperboard className="size-6 text-muted-foreground" />
+        </span>
+        <p className="text-sm font-medium">Кліпів поки немає</p>
+        <p className="max-w-72 text-sm text-muted-foreground">
+          Додайте до допису відео — і воно з&apos;явиться тут, у вертикальній стрічці.
+        </p>
+        <Link href="/?compose=1" className="mt-1 text-sm font-medium underline underline-offset-4">
+          Зняти перший кліп
+        </Link>
+      </div>
+    )
+
+  return (
+    <div
+      ref={containerRef}
+      className="no-scrollbar h-[calc(100dvh-3.5rem-4rem)] snap-y snap-mandatory overflow-y-auto overscroll-contain md:h-[calc(100dvh-3.5rem)]"
+    >
+      {posts.map((p, i) => (
+        <Clip key={p.clientKey ?? p.id} post={p} index={i} />
+      ))}
+    </div>
+  )
+}

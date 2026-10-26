@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { Check } from "lucide-react"
+import { ArrowUp, Check } from "lucide-react"
 import type { FeedTab, Post } from "@/types"
 import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { cn } from "@/lib/utils"
 import { Composer } from "./composer"
 import { FeedTuner } from "./feed-tuner"
+import { StoriesBar } from "@/components/stories/stories-bar"
 import { PostCard, PostSkeleton } from "./post-card"
 import { FeedTunerContext } from "./post-meta"
 
@@ -50,7 +51,7 @@ export function FeedTabs({ value, onChange }: { value: FeedTab; onChange: (v: Fe
 }
 
 function FeedList({ tab }: { tab: FeedTab }) {
-  const { posts, firstPage, loading, hasMore, sentinelRef, prepend, settle, error, retry } = useInfiniteFeed(tab)
+  const { posts, firstPage, loading, hasMore, sentinelRef, prepend, settle, error, retry, newCount, clearNew } = useInfiniteFeed(tab)
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set())
 
   const onPublish = (post: Post) => {
@@ -73,7 +74,27 @@ function FeedList({ tab }: { tab: FeedTab }) {
 
   return (
     <>
+      <StoriesBar />
       <Composer onPublish={onPublish} onSettled={onSettled} />
+      <AnimatePresence initial={false}>
+        {newCount > 0 && (
+          <motion.button
+            key="new-posts"
+            type="button"
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -10, opacity: 0 }}
+            onClick={() => {
+              clearNew()
+              window.scrollTo({ top: 0, behavior: "smooth" })
+            }}
+            className="z-20 mx-auto -mb-2 flex items-center gap-1.5 rounded-full border bg-background/95 px-3.5 py-1.5 text-xs font-medium shadow-md backdrop-blur"
+          >
+            <ArrowUp className="size-3.5 text-brand" />
+            {newCount} {newCount === 1 ? "новий допис" : "нових дописів"} — від вашого останнього візиту
+          </motion.button>
+        )}
+      </AnimatePresence>
       {tab === "following" && posts.length > 0 && (
         <p className="border-b px-4 py-2 text-xs text-muted-foreground">
           Лише ті, кого ви читаєте, від нових до старих. Без алгоритму.

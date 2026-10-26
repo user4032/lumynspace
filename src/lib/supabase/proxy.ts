@@ -3,8 +3,12 @@ import { createServerClient } from "@supabase/ssr"
 import type { Database } from "@/types/database"
 import { isSupabaseConfigured, SUPABASE_ANON_KEY, SUPABASE_URL } from "@/lib/env"
 
-/** Сторінки, доступні без входу */
-const PUBLIC_PATHS = ["/login", "/auth", "/welcome", "/api", "/design", "/post", "/terms", "/privacy", "/about", "/contact", "/guidelines"]
+/** Сторінки, доступні без входу (пости — лише прев'ю для гостей, RLS ховає приватне) */
+const PUBLIC_PATHS = ["/robots.txt", "/sitemap.xml", "/manifest.webmanifest", "/login", "/auth", "/welcome", "/api", "/design", "/post", "/embed", "/terms", "/privacy", "/about", "/contact", "/guidelines"]
+
+/** Краулери месенджерів/пошуковиків: їм віддаємо сторінку з OG-метаданими без редіректу на вхід. */
+const CRAWLER_RE =
+  /(telegrambot|discordbot|twitterbot|facebookexternalhit|facebot|slackbot|linkedinbot|pinterestbot|redditbot|applebot|googlebot|bingbot|yandexbot|duckduckbot|baiduspider|semrushbot|ahrefsbot|embedly|whatsapp|skypeuripreview|vkshare|mastodon|misskey|bluesky)/i
 
 /** Оновлює сесію Supabase на кожному запиті (рефреш токена в cookies). */
 export async function updateSession(request: NextRequest) {
@@ -32,12 +36,20 @@ export async function updateSession(request: NextRequest) {
   // Важливо: між createServerClient і getClaims не має бути іншого коду.
   const { data } = await supabase.auth.getClaims()
 
-  // Без сесії — на вхід (стрічка, профілі, налаштування потребують акаунта).
+  // Без сесії — на вхід (стрічка, профілі, пости за посиланням потребують акаунта).
+  // Але краулерам (Telegram/Discord/…) віддаємо сторінку, щоб працював OG-прев'ю профілю.
   const path = request.nextUrl.pathname
-  if (!data?.claims?.sub && !PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
-  const url = request.nextUrl.clone()
-  url.pathname = path === "/" ? "/welcome" : "/login"
-  url.search = ""
+  const crawler = CRAWLER_RE.test(request.headers.get("user-agent") ?? "")
+  if (!data?.claims?.sub && !crawler && !PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) {
+    const url = request.nextUrl.clone()
+    if (path === "/") {
+      url.pathname = "/welcome"
+      url.search = ""
+    } else {
+      url.pathname = "/login"
+      // після входу повернутись на сторінку, з якої прийшли (напр., пост за посиланням)
+      url.search = `?next=${encodeURIComponent(path + request.nextUrl.search)}`
+    }
     const redirect = NextResponse.redirect(url)
     // зберігаємо оновлені cookie сесії
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c))

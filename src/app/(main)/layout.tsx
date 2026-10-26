@@ -4,11 +4,13 @@ import { RightRail } from "@/components/layout/right-rail"
 import { MobileNav } from "@/components/layout/mobile-nav"
 import { CommandMenuProvider } from "@/components/layout/command-menu"
 import { ViewerSync } from "@/components/viewer-sync"
+import { PushSetup } from "@/components/push-setup"
 
 export default function MainLayout({ children }: LayoutProps<"/">) {
   return (
     <CommandMenuProvider>
       <ViewerSync />
+      <PushSetup />
       <Header />
       <div className="group/shell mx-auto flex max-w-[1220px] justify-center px-0 md:px-4">
         <Sidebar />

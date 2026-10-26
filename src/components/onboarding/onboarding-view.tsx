@@ -4,21 +4,24 @@ import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
-import { ArrowLeft, ArrowRight, Check, Loader2, Lock, Ticket, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, Loader2, Lock, Ticket, Users2, X } from "lucide-react"
+import { toast } from "sonner"
 import { Logo } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { UserAvatar } from "@/components/user-avatar"
+import { VerifiedBadge } from "@/components/verified-badge"
 import { BannerArt } from "@/components/profile/profile-banner"
 import { ACCENTS, accentVars } from "@/lib/accent"
 import { checkHandle, completeOnboarding, getOnboardingStatus } from "@/lib/actions/viewer"
+import { getSuggestedPeople, toggleFollow, type SuggestedUser } from "@/lib/actions/social"
 import { isMinor, useMe, viewerActions } from "@/lib/viewer-store"
-import { currentUser } from "@/lib/mock-data"
+import { currentUser, users as mockUsers } from "@/lib/mock-data"
 import { isMockMode } from "@/lib/env"
 import { cn } from "@/lib/utils"
 
-const STEPS = ["Нік", "Вік", "Інвайт", "Акцент"]
+const STEPS = ["Нік", "Вік", "Інвайт", "Акцент", "Кого читати"]
 const HANDLE_RE = /^[a-z0-9_]{3,24}$/
 const CODE_RE = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/
 const THIS_YEAR = 2026
@@ -30,6 +33,7 @@ const HINTS = [
   "",
   "Один код — один друг. Ви одразу читатимете одне одного.",
   "Цей колір супроводжуватиме кожен ваш допис — у стрічці, в картках для сторіз, у профілі.",
+  "Стрічка живе людьми. Оберіть кількох — це останній крок.",
 ]
 
 export function OnboardingView() {
@@ -49,6 +53,10 @@ export function OnboardingView() {
   // Supabase: код обов'язковий, лише якщо в системі вже є інвайти (перший користувач заходить без коду)
   const [inviteRequired, setInviteRequired] = useState(true)
   const [needsMigration, setNeedsMigration] = useState(false)
+  // крок «Кого читати»: підбір і скількох я вже обрав
+  const [suggested, setSuggested] = useState<SuggestedUser[] | null>(null)
+  const [followedCount, setFollowedCount] = useState(0)
+  const suggestedLoaded = useRef(false)
 
   useEffect(() => {
     if (isMockMode) return
@@ -100,8 +108,32 @@ export function OnboardingView() {
     setStep(next)
   }
 
+  // підбір людей — тягнемо один раз, щойно дійшли до кроку «Кого читати»
+  useEffect(() => {
+    if (step !== 4 || suggestedLoaded.current) return
+    suggestedLoaded.current = true
+    let cancelled = false
+    const load = async () => {
+      let list: SuggestedUser[] = []
+      if (isMockMode) {
+        list = mockUsers
+          .filter((u) => u.id !== currentUser.id)
+          .slice(0, 6)
+          .map((u) => ({ id: u.id, username: u.username, name: u.name, bio: u.bio, avatarUrl: u.avatarUrl ?? null, accentColor: u.accentColor ?? "#7c5cff", isPrivate: u.isPrivate ?? false, verified: u.verified ?? false }))
+      } else {
+        const res = await getSuggestedPeople(8)
+        if (res.ok && res.data) list = res.data
+      }
+      if (!cancelled) setSuggested(list)
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [step])
+
   const codeOk = inviteRequired ? CODE_RE.test(code) : code === "" || CODE_RE.test(code)
-  const canNext = [handleState === "free", yearValid, codeOk, true][step]
+  const canNext = [handleState === "free", yearValid, codeOk, true, true][step]
 
   const finish = () => {
     setError(null)
@@ -120,8 +152,8 @@ export function OnboardingView() {
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter") return
-    if (step < 3 && canNext) go(step + 1)
-    else if (step === 3) finish()
+    if (step < 4 && canNext) go(step + 1)
+    else if (step === 4) finish()
   }
 
   const previewUser = { ...(isMockMode ? currentUser : me), name: handle ? handle : "Це ви", username: handle || "ваш_нік", accentColor: accent }
@@ -311,6 +343,41 @@ export function OnboardingView() {
                   </p>
                 </>
               )}
+
+              {step === 4 && (
+                <>
+                  <h1 className="mt-2 text-[30px] leading-tight font-semibold tracking-[-0.035em]">Кого читати</h1>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Пара людей — і стрічка одразу жива. Підписки можна змінити будь-коли.
+                  </p>
+                  {suggested === null ? (
+                    <p className="mt-10 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" /> Шукаємо людей…
+                    </p>
+                  ) : suggested.length === 0 ? (
+                    <p className="mt-8 flex items-start gap-2.5 rounded-lg border bg-subtle p-3 text-sm text-muted-foreground">
+                      <Users2 className="mt-0.5 size-4 shrink-0 text-[var(--accent-user)]" />
+                      Ви серед перших — читати поки нікого. Загляньте в «Огляд», з&apos;являться дописи й люди.
+                    </p>
+                  ) : (
+                    <div className="mt-6 max-h-[44vh] space-y-1 overflow-y-auto pr-1">
+                      {suggested.map((u) => (
+                        <SuggestRow key={u.id} user={u} onFollow={(on) => setFollowedCount((n) => Math.max(0, n + (on ? 1 : -1)))} />
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    {followedCount > 0 ? (
+                      <>
+                        <Users2 className="size-3.5 text-[var(--accent-user)]" />
+                        Ви обрали {followedCount} {followedCount === 1 ? "людину" : "людей"} — стрічка вже не порожня.
+                      </>
+                    ) : (
+                      "Можна й пропустити — підпишетеся будь-коли."
+                    )}
+                  </p>
+                </>
+              )}
             </motion.div>
           </AnimatePresence>
 
@@ -322,7 +389,7 @@ export function OnboardingView() {
                 <ArrowLeft /> Назад
               </Button>
             )}
-            {step < 3 ? (
+            {step < 4 ? (
               <Button size="lg" className="ml-auto rounded-full px-6" disabled={!canNext} onClick={() => go(step + 1)}>
                 Далі <ArrowRight />
               </Button>
@@ -371,6 +438,57 @@ export function OnboardingView() {
           </motion.div>
         </div>
       </aside>
+    </div>
+  )
+}
+
+/** Рядок «Кого читати»: аватар, ім'я та кнопка «Читати» з оптимістичним станом */
+function SuggestRow({ user, onFollow }: { user: SuggestedUser; onFollow: (on: boolean) => void }) {
+  const [chosen, setChosen] = useState(false)
+  const [, startTransition] = useTransition()
+
+  const toggle = () => {
+    const next = !chosen
+    setChosen(next)
+    onFollow(next)
+    startTransition(async () => {
+      const res = await toggleFollow(user.id, next)
+      if (!res.ok) {
+        setChosen(!next)
+        onFollow(!next)
+        toast.error(res.error)
+      }
+    })
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-subtle/40 p-2.5">
+      <Link href={`/${user.username}`} className="shrink-0" onClick={(e) => e.preventDefault()}>
+        <UserAvatar user={{ username: user.username, name: user.name, avatarUrl: user.avatarUrl }} size="lg" />
+      </Link>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1 truncate text-sm font-medium">
+          {user.name}
+          {user.verified && <VerifiedBadge className="size-3.5" />}
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">@{user.username}</span>
+      </span>
+      <Button
+        size="sm"
+        variant={chosen ? "secondary" : "default"}
+        aria-pressed={chosen}
+        onClick={toggle}
+        className="min-w-[88px] rounded-full"
+        style={chosen ? undefined : { background: "var(--accent-user)", color: "var(--accent-user-fg)" }}
+      >
+        {chosen ? (
+          <>
+            <Check /> Читаю
+          </>
+        ) : (
+          "Читати"
+        )}
+      </Button>
     </div>
   )
 }

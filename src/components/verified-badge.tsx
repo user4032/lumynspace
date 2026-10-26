@@ -1,10 +1,21 @@
-import { cn } from "@/lib/utils"
+import { VerifiedBadgeHint } from "@/components/verified-badge-hint"
+import { VERIFIED_PATH } from "@/components/verified-path"
 
-export function VerifiedBadge({ className }: { className?: string }) {
+export { VERIFIED_PATH }
+
+/**
+ * Знак верифікації з підказкою «Підтверджений акаунт»:
+ * ховер на десктопі, тап — на телефоні (verified-badge-hint.tsx).
+ */
+export function VerifiedBadge(props: { className?: string; shimmer?: boolean }) {
+  return <VerifiedBadgeHint {...props} />
+}
+
+/** Та сама печатка для ImageResponse (satori): без CSS. */
+export function VerifiedMarkStatic({ size = 28, color = "#ededed" }: { size?: number; color?: string }) {
   return (
-    <svg viewBox="0 0 16 16" aria-label="Підтверджений акаунт" className={cn("size-[15px] shrink-0 text-brand", className)}>
-      <circle cx="8" cy="8" r="8" fill="currentColor" />
-      <path d="M5.2 8.2l1.9 1.9 3.7-3.9" fill="none" stroke="var(--background)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={size} height={size} viewBox="0 0 16 16">
+      <path d={VERIFIED_PATH} fill={color} fillRule="evenodd" />
     </svg>
   )
 }

@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 import Link from "next/link"
+import { Suspense } from "react"
 import { ArrowRight, Info } from "lucide-react"
 import { LogoMark } from "@/components/logo"
+import { EmailAuthForm } from "@/components/auth/email-form"
 import { OAuthButtons } from "@/components/oauth-buttons"
 import { ThemeSwitcher } from "@/components/theme-toggle"
 import { isSupabaseConfigured } from "@/lib/env"
@@ -39,8 +41,18 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-8">
-            <OAuthButtons />
+            <Suspense>
+              <EmailAuthForm />
+            </Suspense>
           </div>
+
+          <div className="my-6 flex items-center gap-3" aria-hidden>
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">або</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          <OAuthButtons />
 
           {!isSupabaseConfigured && (
             <div className="mt-5 rounded-lg border border-dashed bg-subtle/80 p-3.5 text-sm backdrop-blur">

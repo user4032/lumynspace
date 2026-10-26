@@ -83,7 +83,7 @@ export function ProfileBanner({ style, coverUrl, children }: { style: BannerStyl
   const opacity = useTransform(scrollY, [0, 240], [1, 0.6])
 
   return (
-    <div className="relative h-[180px] overflow-hidden border-b sm:h-[210px]">
+    <div className="relative z-0 h-[180px] overflow-hidden border-b sm:h-[210px]">
       <motion.div className="absolute inset-0 -bottom-10" style={reduce ? { opacity } : { y, opacity }}>
         <BannerArt style={style} coverUrl={coverUrl} />
       </motion.div>

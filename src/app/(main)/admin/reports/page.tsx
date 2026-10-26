@@ -1,75 +1,85 @@
-import { redirect } from "next/navigation"
-import { getSupabaseServerClient } from "@/lib/supabase/server"
+import type { Metadata } from "next"
+import { Suspense } from "react"
 import Link from "next/link"
-import { revalidatePath } from "next/cache"
+import { requireAdmin } from "@/lib/admin"
+import { AdminNav } from "@/components/admin/admin-nav"
+import { ReportActions } from "@/components/admin/report-actions"
 
-export const instant = false
+export const metadata: Metadata = { title: "Адмін · Скарги" }
 
-async function dismissReport(id: string) {
-  "use server"
-  const supabase = await getSupabaseServerClient()
-  if (!supabase) return
-  await supabase.from("reports").update({ status: "dismissed" }).eq("id", id)
-  revalidatePath("/admin/reports")
+type Report = {
+  id: string
+  target_type: string
+  target_id: string
+  reason: string
+  details: string
+  created_at: string
+  reporter_username: string | null
+  target_user: string | null
+  target_username: string | null
+  target_preview: string
 }
 
-async function deletePost(postId: string, reportId: string) {
-  "use server"
-  const supabase = await getSupabaseServerClient()
-  if (!supabase) return
-  await supabase.from("posts").delete().eq("id", postId)
-  await supabase.from("reports").update({ status: "resolved" }).eq("id", reportId)
-  revalidatePath("/admin/reports")
+const REASONS: Record<string, string> = {
+  spam: "Спам", harassment: "Цькування", hate: "Ненависть", violence: "Насильство", nudity: "Оголеність",
+  self_harm: "Самошкодження", impersonation: "Видає себе за іншого", minor_safety: "Безпека дітей", other: "Інше",
 }
 
-export default async function AdminReportsPage() {
-  const supabase = await getSupabaseServerClient()
-  if (!supabase) redirect("/login")
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect("/login")
-
-  const { data: me } = await supabase.from("profiles").select("is_admin" as "*").eq("id", user.id).single()
-  if (!(me as { is_admin?: boolean })?.is_admin) redirect("/")
-
-  const { data: reports } = await supabase
-    .from("reports")
-    .select("id, target_type, target_id, reason, details, status, created_at")
-    .eq("status", "open")
-    .order("created_at", { ascending: false })
-    .limit(100)
-
+export default function AdminReportsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
+      <AdminNav active="reports" />
       <h1 className="text-2xl font-semibold">Скарги</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{reports?.length ?? 0} відкритих</p>
+      <Suspense fallback={<p className="mt-6 text-sm text-muted-foreground">Завантаження…</p>}>
+        <ReportsList />
+      </Suspense>
+    </div>
+  )
+}
 
+async function ReportsList() {
+  const { rpc } = await requireAdmin()
+  const { data, error } = await rpc("admin_open_reports", { p_limit: 200 })
+  const reports = (data ?? []) as Report[]
+
+  return (
+    <>
+      <p className="mt-1 text-sm text-muted-foreground">{reports.length} відкритих</p>
+      {error && <p className="mt-4 text-sm text-destructive">{error.message}</p>}
       <ul className="mt-6 divide-y">
-        {reports?.map((r) => (
-          <li key={r.id} className="py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{r.target_type} · {r.reason}</span>
-              <span className="text-xs text-muted-foreground">{r.status}</span>
+        {reports.map((r) => (
+          <li key={r.id} className="space-y-2 py-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium">
+                {r.target_type === "post" ? "Допис" : r.target_type === "profile" ? "Профіль" : r.target_type} · {REASONS[r.reason] ?? r.reason}
+              </span>
+              <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleString("uk")}</span>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {r.target_id.slice(0, 8)}… · {new Date(r.created_at).toLocaleString("uk")}
+            <p className="text-xs text-muted-foreground">
+              Від {r.reporter_username ? `@${r.reporter_username}` : "—"}
+              {r.target_username && (
+                <>
+                  {" · на "}
+                  <Link href={`/${r.target_username}`} className="underline">@{r.target_username}</Link>
+                </>
+              )}
             </p>
-            <div className="mt-3 flex gap-2">
+            {r.details && <p className="text-sm">{r.details}</p>}
+            {r.target_preview && <blockquote className="border-l-2 pl-3 text-sm text-muted-foreground">{r.target_preview}</blockquote>}
+            <div className="flex flex-wrap items-center gap-3">
               {r.target_type === "post" && (
-                <Link href={`/post/${r.target_id}`} className="text-xs underline">Відкрити</Link>
+                <Link href={`/post/${r.target_id}`} className="text-xs underline">Відкрити допис</Link>
               )}
-              <form action={dismissReport.bind(null, r.id)}>
-                <button type="submit" className="text-xs text-muted-foreground underline">Відхилити</button>
-              </form>
-              {r.target_type === "post" && (
-                <form action={deletePost.bind(null, r.target_id, r.id)}>
-                  <button type="submit" className="text-xs text-destructive underline">Видалити пост</button>
-                </form>
+              {r.target_username && (
+                <Link href={`/admin/users?q=${encodeURIComponent(r.target_username)}`} className="text-xs underline">
+                  Дії з користувачем
+                </Link>
               )}
             </div>
+            <ReportActions reportId={r.id} postId={r.target_type === "post" ? r.target_id : null} />
           </li>
         ))}
       </ul>
-    </div>
+    </>
   )
 }

@@ -1,9 +1,10 @@
 import type { FeedPrefs, ProfileWidgets, User } from "@/types"
 import type { ProfileRow } from "@/types/database"
+import { hiResAvatarUrl } from "@/lib/avatar"
 
 /** Колонки profiles, які потрібні UI (без birth_year / invited_by чужих людей). */
 export const PUBLIC_PROFILE_COLUMNS =
-  "id, username, display_name, avatar_url, cover_url, bio, status, status_expires_at, location, website, followers_count, following_count, posts_count, accent_color, banner_style, widgets, is_private, dm_policy, created_at"
+  "id, username, display_name, avatar_url, cover_url, bio, status, status_expires_at, location, website, followers_count, following_count, posts_count, accent_color, banner_style, widgets, is_private, dm_policy, created_at, verified, frame, frame_expires_at"
 
 export type PublicProfileRow = Pick<
   ProfileRow,
@@ -26,6 +27,9 @@ export type PublicProfileRow = Pick<
   | "is_private"
   | "dm_policy"
   | "created_at"
+  | "verified"
+  | "frame"
+  | "frame_expires_at"
 >
 
 export function readWidgets(raw: unknown): ProfileWidgets {
@@ -49,7 +53,7 @@ export function profileRowToUser(row: PublicProfileRow): User {
     id: row.id,
     username: row.username,
     name: row.display_name || row.username,
-    avatarUrl: row.avatar_url,
+    avatarUrl: hiResAvatarUrl(row.avatar_url),
     coverUrl: row.cover_url,
     bio: row.bio ?? "",
     status: row.status ?? "",
@@ -65,5 +69,8 @@ export function profileRowToUser(row: PublicProfileRow): User {
     widgets: readWidgets(row.widgets),
     isPrivate: row.is_private,
     dmPolicy: row.dm_policy,
+    frame: (row as { frame?: string | null }).frame ?? null,
+    frameExpiresAt: (row as { frame_expires_at?: string | null }).frame_expires_at ?? null,
+    verified: row.verified ?? false,
   }
 }

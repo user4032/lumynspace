@@ -4,12 +4,13 @@ import Link from "next/link"
 import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
-import { AtSign, CheckCheck, Heart, Mail, MessageCircle, Repeat2, UserPlus, UserRoundPlus } from "lucide-react"
+import { AtSign, CheckCheck, Clock, Heart, Mail, MessageCircle, Repeat2, UserPlus, UserRoundPlus } from "lucide-react"
 import { SparkIcon } from "@/components/icons"
 import type { Notification, NotificationType } from "@/types"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
 import { timeAgoLong } from "@/lib/format"
+import { frameByKey } from "@/lib/frames"
 import { isMockMode } from "@/lib/env"
 import { useNow } from "@/hooks/useNow"
 import { markNotificationsRead } from "@/lib/actions/social"
@@ -29,6 +30,7 @@ const META: Record<NotificationType, { icon: React.ComponentType<{ className?: s
   repost: { icon: Repeat2, verb: "поширив(-ла) ваш допис", code: "репост" },
   mention: { icon: AtSign, verb: "згадав(-ла) вас", code: "згадка" },
   message: { icon: Mail, verb: "надіслав(-ла) повідомлення", code: "повідомлення" },
+  frame_expired: { icon: Clock, verb: "більше не діє — термін вичерпано", code: "рамка", tone: "text-brand" },
 }
 
 const FILTERS: { value: "all" | NotificationType; label: string }[] = [
@@ -38,6 +40,7 @@ const FILTERS: { value: "all" | NotificationType; label: string }[] = [
   { value: "mention", label: "Згадки" },
   { value: "follow", label: "Підписки" },
   { value: "friend_joined", label: "Друзі" },
+  { value: "frame_expired", label: "Рамки" },
   { value: "message", label: "Повідомлення" },
 ]
 
@@ -152,7 +155,15 @@ export function ActivityLog({ items: initial, loading = false }: { items: Notifi
               {list.map((n) => {
                 const meta = META[n.type]
                 const Icon = meta.icon
-                const href = n.type === "message" ? `/messages/${n.actor.username}` : n.postId ? `/post/${n.postId}` : `/${n.actor.username}`
+                const frameName = n.type === "frame_expired" ? frameByKey(n.frameKey)?.name ?? n.frameKey : null
+                const href =
+                  n.type === "frame_expired"
+                    ? "/settings/frames"
+                    : n.type === "message"
+                      ? `/messages/${n.actor.username}`
+                      : n.postId
+                        ? `/post/${n.postId}`
+                        : `/${n.actor.username}`
                 return (
                   <motion.div key={n.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="border-b">
                     <Link
@@ -169,16 +180,28 @@ export function ActivityLog({ items: initial, loading = false }: { items: Notifi
                           className={cn("size-2 shrink-0 rounded-full transition-colors", n.read ? "bg-border" : "bg-brand shadow-[0_0_0_3px_color-mix(in_oklab,var(--brand)_20%,transparent)]")}
                         />
                         <span className="relative shrink-0">
-                          <UserAvatar user={n.actor} size="md" />
+                          <UserAvatar
+                            user={n.actor}
+                            size="md"
+                            frame={n.type === "frame_expired" ? n.frameKey : undefined}
+                            frameExpiresAt={n.type === "frame_expired" ? "2099-01-01" : undefined}
+                          />
                           <span className={cn("absolute -right-1 -bottom-1 inline-flex size-[18px] items-center justify-center rounded-full border bg-background", meta.tone)}>
                             <Icon className="size-2.5" />
                           </span>
                         </span>
                         <span className="min-w-0">
-                          <span className="block truncate text-sm">
-                            <span className="font-medium">{n.actor.name}</span>{" "}
-                            <span className="text-muted-foreground">{meta.verb}</span>
-                          </span>
+                          {n.type === "frame_expired" ? (
+                            <span className="block truncate text-sm">
+                              <span className="font-medium">Рамка «{frameName ?? "невідома"}»</span>{" "}
+                              <span className="text-muted-foreground">{meta.verb}</span>
+                            </span>
+                          ) : (
+                            <span className="block truncate text-sm">
+                              <span className="font-medium">{n.actor.name}</span>{" "}
+                              <span className="text-muted-foreground">{meta.verb}</span>
+                            </span>
+                          )}
                           {n.preview && <span className="block truncate font-mono text-xs text-muted-foreground">{n.preview}</span>}
                         </span>
                       </span>

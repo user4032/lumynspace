@@ -19,17 +19,20 @@ export type ViewerState = {
     bio: string
     status: string
     statusExpiresAt: string | null
+    statusIcon?: string | null
     accentColor: string
     bannerStyle: BannerStyle
     top4: string[]
     nowPlaying: { title: string; artist: string } | null
-    spotifyConnected?: boolean
+    lastfmUsername?: string
   }
   feedPrefs: FeedPrefs
   closeFriends: string[]
   blocked: string[]
   muted: string[]
   hiddenPosts: string[]
+  /** Supabase (0011): id дописів у закладках */
+  bookmarks: string[]
   privacy: {
     isPrivate: boolean
     dmPolicy: DmPolicy
@@ -61,6 +64,7 @@ const DEMO_VIEWER: ViewerState = {
   blocked: [],
   muted: [],
   hiddenPosts: [],
+  bookmarks: [],
   privacy: { isPrivate: false, dmPolicy: "everyone", birthYear: 2004, showOnline: true, hideFollowing: false },
 }
 
@@ -83,6 +87,7 @@ const LIVE_VIEWER: ViewerState = {
   blocked: [],
   muted: [],
   hiddenPosts: [],
+  bookmarks: [],
   privacy: { isPrivate: false, dmPolicy: "everyone", birthYear: null, showOnline: true, hideFollowing: false },
   self: null,
   people: [],
@@ -150,9 +155,11 @@ export function setViewer(update: (s: ViewerState) => ViewerState) {
 
 export const viewerActions = {
   updateProfile: (p: Partial<ViewerState["profile"]>) => setViewer((s) => ({ ...s, profile: { ...s.profile, ...p } })),
+  /** Supabase: оновити частину свого profiles-рядка без повного hydrate (напр. рамку) */
+  updateSelf: (p: Partial<User>) => setViewer((s) => (s.self ? { ...s, self: { ...s.self, ...p } } : s)),
   updatePrivacy: (p: Partial<ViewerState["privacy"]>) => setViewer((s) => ({ ...s, privacy: { ...s.privacy, ...p } })),
   setFeedPrefs: (p: Partial<FeedPrefs>) => setViewer((s) => ({ ...s, feedPrefs: { ...s.feedPrefs, ...p } })),
-  toggle: (list: "closeFriends" | "blocked" | "muted" | "hiddenPosts", id: string, on?: boolean) =>
+  toggle: (list: "closeFriends" | "blocked" | "muted" | "hiddenPosts" | "bookmarks", id: string, on?: boolean) =>
     setViewer((s) => {
       const has = s[list].includes(id)
       const next = on ?? !has
@@ -225,6 +232,7 @@ export function useMe(): User {
     bio: profile.bio,
     status: profile.status,
     statusExpiresAt: profile.statusExpiresAt,
+    statusIcon: profile.statusIcon ?? null,
     accentColor: profile.accentColor,
     bannerStyle: profile.bannerStyle,
     widgets: { top4: profile.top4, now_playing: profile.nowPlaying },

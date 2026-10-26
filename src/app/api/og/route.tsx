@@ -2,13 +2,16 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { ImageResponse } from "next/og"
 import type { NextRequest } from "next/server"
-import { BrandCard, ShareCardView, shareCardFor } from "@/lib/share-card"
+import { BrandCard, ProfileShareCardView, ShareCardView, shareCardFor, shareCardForProfile } from "@/lib/share-card"
 
-/** OG-картинка допису 1200×630: /api/og?id=<post id>. Без id — картка Lumyn. */
+/** OG-картинка: /api/og?id=<post id> для допису, /api/og?u=<username> для профілю, без параметрів — картка Lumyn. */
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")
+  const username = request.nextUrl.searchParams.get("u")
   const card = id ? await shareCardFor(id) : null
+  const profile = !id && username ? await shareCardForProfile(username) : null
   if (id && !card) return new Response("Не знайдено", { status: 404 })
+  if (username && !id && !profile) return new Response("Не знайдено", { status: 404 })
 
   const [regular, semibold] = await Promise.all([
     readFile(join(process.cwd(), "assets/fonts/Geist-Regular.ttf")),
@@ -19,5 +22,8 @@ export async function GET(request: NextRequest) {
     { name: "Geist", data: semibold, weight: 600 as const, style: "normal" as const },
   ]
 
-  return new ImageResponse(card ? <ShareCardView card={card} /> : <BrandCard />, { width: 1200, height: 630, fonts })
+  return new ImageResponse(
+    card ? <ShareCardView card={card} /> : profile ? <ProfileShareCardView card={profile} /> : <BrandCard />,
+    { width: 1200, height: 630, fonts },
+  )
 }

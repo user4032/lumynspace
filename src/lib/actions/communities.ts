@@ -45,13 +45,13 @@ export async function createCommunity(input: {
 /** Назва/опис/приватність/фото (owner, admin — RLS communities_update_admins). */
 export async function updateCommunity(
   id: string,
-  patch: { name?: string; description?: string; isPrivate?: boolean; avatarUrl?: string | null; coverUrl?: string | null }
+  patch: { name?: string; description?: string; isPrivate?: boolean; membersVisible?: boolean; avatarUrl?: string | null; coverUrl?: string | null }
 ): Promise<ActionResult> {
   if (!UUID_RE.test(id)) return { ok: false, error: "Спільноту не знайдено" }
   const { supabase, me } = await session()
   if (!supabase) return DEMO
   if (!me) return { ok: false, error: "Увійдіть" }
-  const row: { name?: string; description?: string; is_private?: boolean; avatar_url?: string | null; cover_url?: string | null } = {}
+  const row: { name?: string; description?: string; is_private?: boolean; members_visible?: boolean; avatar_url?: string | null; cover_url?: string | null } = {}
   if (patch.name !== undefined) {
     const n = patch.name.trim()
     if (n.length < 2 || n.length > 60) return { ok: false, error: "Назва: 2–60 символів" }
@@ -59,6 +59,7 @@ export async function updateCommunity(
   }
   if (patch.description !== undefined) row.description = patch.description.trim().slice(0, 500)
   if (patch.isPrivate !== undefined) row.is_private = patch.isPrivate
+  if (patch.membersVisible !== undefined) row.members_visible = patch.membersVisible
   for (const [k, v] of [["avatar_url", patch.avatarUrl], ["cover_url", patch.coverUrl]] as const) {
     if (v === undefined) continue
     if (v && (!/^https:\/\//.test(v) || v.length > 500)) return { ok: false, error: "Некоректне посилання на фото" }

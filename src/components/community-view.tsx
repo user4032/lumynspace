@@ -4,11 +4,12 @@ import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useOptimistic, useState, useTransition } from "react"
 import { motion } from "framer-motion"
-import { Check, Clock, Globe, Lock, Plus, Settings2 } from "lucide-react"
+import { Check, Clock, Globe, Lock, Plus, Search, Settings2, X } from "lucide-react"
 import { toast } from "sonner"
 import type { Community, CommunityRole, Post, User } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { CommunityIcon } from "@/components/community-icon"
 import { UserAvatar } from "@/components/user-avatar"
 import { Composer } from "@/components/feed/composer"
@@ -27,7 +28,7 @@ const ROLE_LABEL: Record<CommunityRole, string> = {
   member: "Учасник",
 }
 
-type Tab = "feed" | "about" | "members"
+type Tab = "feed" | "about" | "members" | "requests"
 
 export function CommunityView({
   community,
@@ -49,11 +50,48 @@ export function CommunityView({
   // Supabase: у приватну спільноту — лише за запитом
   const needsRequest = !isMockMode && community.isPrivate && !community.role
   const canManage = !isMockMode && (community.role === "owner" || community.role === "admin")
+  const canModerate = !isMockMode && (community.role === "owner" || community.role === "admin" || community.role === "mod")
+  const showMembers = isMockMode || canModerate || community.membersVisible !== false
+  const showRequests = canModerate && community.isPrivate
   const [tab, setTab] = useState<Tab>("feed")
   const [joined, setJoined] = useState(Boolean(community.role))
   const [optimisticJoined, setOptimisticJoined] = useOptimistic(joined)
   const [, startTransition] = useTransition()
   const [feed, setFeed] = useState(posts)
+  const [query, setQuery] = useState("")
+
+  const needle = query.trim().toLowerCase()
+  const searching = needle.length > 0
+  const matches = (user: User) =>
+    !searching || user.name.toLowerCase().includes(needle) || user.username.toLowerCase().includes(needle)
+  const filteredMembers = members.filter(({ user }) => matches(user))
+  const filteredRequests = requests.filter(({ user }) => matches(user))
+  const tabs: { value: Tab; label: string }[] = [
+    { value: "feed", label: "Стрічка" },
+    { value: "about", label: "Про спільноту" },
+    ...(showMembers ? [{ value: "members" as const, label: "Учасники" }] : []),
+    ...(showRequests ? [{ value: "requests" as const, label: "Заявки" }] : []),
+  ]
+
+  const renderMembers = (list: { user: User; role: CommunityRole }[]) => (
+    <ul>
+      {list.map(({ user, role }) => (
+        <li key={user.id} className="flex items-center gap-3 border-b px-4 py-3">
+          <UserAvatar user={user} size="lg" showOnline />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">{user.name}</p>
+            <p className="text-xs text-muted-foreground">@{user.username}</p>
+          </div>
+          <Badge variant={role === "member" ? "secondary" : "outline"} className={cn(role === "owner" && "border-brand/40 text-brand")}>
+            {ROLE_LABEL[role]}
+          </Badge>
+          {!isMockMode && community.role && user.id !== meId && (
+            <MemberMenu communityId={community.id} user={user} role={role} myRole={community.role} />
+          )}
+        </li>
+      ))}
+    </ul>
+  )
 
   const toggleRequest = () => {
     const next = !requested
@@ -130,11 +168,7 @@ export function CommunityView({
       </div>
 
       <div role="tablist" className="sticky top-14 z-20 flex border-b bg-background/75 backdrop-blur-xl">
-        {([
-          ["feed", "Стрічка"],
-          ["about", "Про спільноту"],
-          ["members", "Учасники"],
-        ] as [Tab, string][]).map(([value, label]) => (
+        {tabs.map(({ value, label }) => (
           <button
             key={value}
             role="tab"
@@ -191,30 +225,59 @@ export function CommunityView({
         </div>
       )}
 
-      {tab === "members" && <JoinRequests communityId={community.id} requests={requests} />}
-
-      {tab === "members" && members.length === 0 && (
-        <p className="px-4 py-16 text-center text-sm text-muted-foreground">Учасників поки немає</p>
-      )}
-
-      {tab === "members" && (
-        <ul>
-          {members.map(({ user, role }) => (
-            <li key={user.id} className="flex items-center gap-3 border-b px-4 py-3">
-              <UserAvatar user={user} size="lg" showOnline />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">@{user.username}</p>
-              </div>
-              <Badge variant={role === "member" ? "secondary" : "outline"} className={cn(role === "owner" && "border-brand/40 text-brand")}>
-                {ROLE_LABEL[role]}
-              </Badge>
-              {!isMockMode && community.role && user.id !== meId && (
-                <MemberMenu communityId={community.id} user={user} role={role} myRole={community.role} />
+      {(tab === "members" || tab === "requests") && (
+        <>
+          <div className="border-b p-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Пошук учасників і заявок…"
+                aria-label="Пошук учасників і заявок"
+                className="h-9 pr-8 pl-8"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label="Очистити пошук"
+                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-subtle hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
               )}
-            </li>
-          ))}
-        </ul>
+            </div>
+          </div>
+
+          {tab === "requests" && (
+            <>
+              <JoinRequests communityId={community.id} requests={filteredRequests} title="Заявки на вступ" />
+              {filteredRequests.length === 0 && (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  {searching ? "Заявок не знайдено" : "Нових заявок немає"}
+                </p>
+              )}
+            </>
+          )}
+
+          {tab === "members" && searching && showRequests && filteredRequests.length > 0 && (
+            <JoinRequests communityId={community.id} requests={filteredRequests} title="Заявки на вступ" />
+          )}
+
+          {(tab === "members" || (tab === "requests" && searching)) && (
+            <section>
+              <h3 className="px-4 pt-3 pb-1 text-xs font-medium text-muted-foreground">Учасники · {filteredMembers.length}</h3>
+              {filteredMembers.length ? (
+                renderMembers(filteredMembers)
+              ) : (
+                <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  {searching ? "Учасників не знайдено" : "Учасників поки немає"}
+                </p>
+              )}
+            </section>
+          )}
+        </>
       )}
       {canManage && <CommunitySettingsDialog community={community} open={settingsOpen} onOpenChange={setSettingsOpen} />}
     </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useId, useRef } from "react"
-import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js"
+import type { RealtimePostgresDeletePayload, RealtimePostgresInsertPayload, RealtimePostgresUpdatePayload } from "@supabase/supabase-js"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 type Options<Row extends Record<string, unknown>> = {
@@ -11,10 +11,13 @@ type Options<Row extends Record<string, unknown>> = {
   filter?: string
   enabled?: boolean
   onInsert: (row: Row) => void
+  /** 0021: живі редагування й видалення */
+  onUpdate?: (row: Row, old: Partial<Row>) => void
+  onDelete?: (old: Partial<Row>) => void
 }
 
 /**
- * Підписка на INSERT у таблиці через Supabase Realtime.
+ * Підписка на зміни в таблиці через Supabase Realtime.
  * У демо-режимі (без .env) нічого не робить.
  */
 export function useRealtime<Row extends Record<string, unknown>>({
@@ -22,13 +25,19 @@ export function useRealtime<Row extends Record<string, unknown>>({
   filter,
   enabled = true,
   onInsert,
+  onUpdate,
+  onDelete,
 }: Options<Row>) {
-  const handler = useRef(onInsert)
+  const insertRef = useRef(onInsert)
+  const updateRef = useRef(onUpdate)
+  const deleteRef = useRef(onDelete)
   // окремий канал на кожного підписника (однакові topic у supabase-js конфліктують)
   const uid = useId()
   useEffect(() => {
-    handler.current = onInsert
-  }, [onInsert])
+    insertRef.current = onInsert
+    updateRef.current = onUpdate
+    deleteRef.current = onDelete
+  }, [onInsert, onUpdate, onDelete])
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient()
@@ -39,7 +48,17 @@ export function useRealtime<Row extends Record<string, unknown>>({
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table, filter },
-        (payload: RealtimePostgresInsertPayload<Row>) => handler.current(payload.new)
+        (payload: RealtimePostgresInsertPayload<Row>) => insertRef.current(payload.new)
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table, filter },
+        (payload: RealtimePostgresUpdatePayload<Row>) => updateRef.current?.(payload.new, payload.old as Partial<Row>)
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table, filter },
+        (payload: RealtimePostgresDeletePayload<Row>) => deleteRef.current?.(payload.old as Partial<Row>)
       )
       .subscribe()
 

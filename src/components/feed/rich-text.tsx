@@ -12,7 +12,7 @@ export function RichText({ text }: { text: string }) {
         if (!part) return null
         if (part.startsWith("#") && part.length > 1)
           return (
-            <Link key={i} href={`/explore?q=${encodeURIComponent(part)}`} className="text-brand hover:underline">
+            <Link key={i} href={`/hashtag/${part.slice(1).toLowerCase()}`} className="text-brand hover:underline">
               {part}
             </Link>
           )

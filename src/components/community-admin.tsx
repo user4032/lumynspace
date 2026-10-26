@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { UserAvatar } from "@/components/user-avatar"
+import { ImageCropDialog } from "@/components/image-crop-dialog"
 import { removeMember, respondJoinRequest, setMemberRole, updateCommunity } from "@/lib/actions/communities"
 import { IMAGE_ACCEPT, uploadImage } from "@/lib/storage"
 import { timeAgoLong } from "@/lib/format"
@@ -42,31 +43,50 @@ export function CommunitySettingsDialog({
   const [name, setName] = useState(community.name)
   const [description, setDescription] = useState(community.description)
   const [isPrivate, setIsPrivate] = useState(community.isPrivate)
+  const [membersVisible, setMembersVisible] = useState(community.membersVisible !== false)
   const [busy, setBusy] = useState<null | "save" | "avatar" | "cover">(null)
+  const [draft, setDraft] = useState<{ file: File; kind: "avatar" | "cover" } | null>(null)
   const avatarRef = useRef<HTMLInputElement>(null)
   const coverRef = useRef<HTMLInputElement>(null)
 
-  const upload = (kind: "avatar" | "cover") => async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ""
-    if (!file) return
+  const apply = async (kind: "avatar" | "cover", file: File) => {
     setBusy(kind)
     const up = await uploadImage("community-media", file)
     if (!up.ok) {
       setBusy(null)
       toast.error(up.error)
-      return
+      return false
     }
     const res = await updateCommunity(community.id, kind === "avatar" ? { avatarUrl: up.url } : { coverUrl: up.url })
     setBusy(null)
-    if (!res.ok) return void toast.error(res.error)
+    if (!res.ok) {
+      toast.error(res.error)
+      return false
+    }
     toast.success(kind === "avatar" ? "Аватар спільноти оновлено" : "Обкладинку оновлено")
     router.refresh()
+    return true
+  }
+
+  const pick = (kind: "avatar" | "cover") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (file.type === "image/gif") {
+      toast.error("GIF не підтримується — використайте JPG, PNG або WebP")
+      return
+    }
+    setDraft({ file, kind })
   }
 
   const save = async () => {
     setBusy("save")
-    const res = await updateCommunity(community.id, { name, description, isPrivate })
+    const res = await updateCommunity(community.id, {
+      name,
+      description,
+      isPrivate,
+      ...(membersVisible !== (community.membersVisible !== false) ? { membersVisible } : {}),
+    })
     setBusy(null)
     if (!res.ok) return void toast.error(res.error)
     toast.success("Спільноту збережено")
@@ -75,47 +95,69 @@ export function CommunitySettingsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Керування спільнотою</DialogTitle>
-          <DialogDescription>c/{community.slug}</DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" size="sm" disabled={busy !== null} onClick={() => avatarRef.current?.click()}>
-              {busy === "avatar" ? <Loader2 className="animate-spin" /> : <ImagePlus />} Аватар
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Керування спільнотою</DialogTitle>
+            <DialogDescription>c/{community.slug}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" size="sm" disabled={busy !== null} onClick={() => avatarRef.current?.click()}>
+                {busy === "avatar" ? <Loader2 className="animate-spin" /> : <ImagePlus />} Аватар
+              </Button>
+              <Button type="button" variant="secondary" size="sm" disabled={busy !== null} onClick={() => coverRef.current?.click()}>
+                {busy === "cover" ? <Loader2 className="animate-spin" /> : <ImagePlus />} Обкладинка
+              </Button>
+              <input ref={avatarRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={pick("avatar")} />
+              <input ref={coverRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={pick("cover")} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="c-name">Назва</Label>
+              <Input id="c-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="c-desc">Опис і правила</Label>
+              <Textarea id="c-desc" value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} className="min-h-24" />
+            </div>
+            <label className="flex items-center justify-between gap-4 text-sm">
+              <span>
+                Приватна спільнота
+                <span className="block text-xs text-muted-foreground">Дописи бачать лише учасники, вступ — за запитом.</span>
+              </span>
+              <Switch checked={isPrivate} onCheckedChange={setIsPrivate} />
+            </label>
+            <label className="flex items-center justify-between gap-4 text-sm">
+              <span>
+                Показувати учасників
+                <span className="block text-xs text-muted-foreground">Якщо вимкнено, список бачать лише власник, адміни й модератори.</span>
+              </span>
+              <Switch checked={membersVisible} onCheckedChange={setMembersVisible} />
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Заявки на вступ бачать лише власник, адміни й модератори — в окремій вкладці.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>Скасувати</Button>
+            <Button disabled={busy !== null} onClick={save}>
+              {busy === "save" && <Loader2 className="animate-spin" />} Зберегти
             </Button>
-            <Button type="button" variant="secondary" size="sm" disabled={busy !== null} onClick={() => coverRef.current?.click()}>
-              {busy === "cover" ? <Loader2 className="animate-spin" /> : <ImagePlus />} Обкладинка
-            </Button>
-            <input ref={avatarRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={upload("avatar")} />
-            <input ref={coverRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={upload("cover")} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="c-name">Назва</Label>
-            <Input id="c-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="c-desc">Опис і правила</Label>
-            <Textarea id="c-desc" value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} className="min-h-24" />
-          </div>
-          <label className="flex items-center justify-between gap-4 text-sm">
-            <span>
-              Приватна спільнота
-              <span className="block text-xs text-muted-foreground">Дописи бачать лише учасники, вступ — за запитом.</span>
-            </span>
-            <Switch checked={isPrivate} onCheckedChange={setIsPrivate} />
-          </label>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Скасувати</Button>
-          <Button disabled={busy !== null} onClick={save}>
-            {busy === "save" && <Loader2 className="animate-spin" />} Зберегти
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {draft && (
+        <ImageCropDialog
+          key={`${draft.kind}-${draft.file.name}-${draft.file.size}-${draft.file.lastModified}`}
+          file={draft.file}
+          kind={draft.kind}
+          onClose={() => setDraft(null)}
+          onConfirm={(cropped) => (draft ? apply(draft.kind, cropped) : Promise.resolve(false))}
+        />
+      )}
+    </>
   )
 }
 
@@ -174,7 +216,7 @@ export function MemberMenu({
 }
 
 /** Запити на вступ у приватну спільноту */
-export function JoinRequests({ communityId, requests }: { communityId: string; requests: { user: User; createdAt: string }[] }) {
+export function JoinRequests({ communityId, requests, title = "Запити на вступ" }: { communityId: string; requests: { user: User; createdAt: string }[]; title?: string }) {
   const router = useRouter()
   const now = useNow()
   const [pending, start] = useTransition()
@@ -193,7 +235,7 @@ export function JoinRequests({ communityId, requests }: { communityId: string; r
 
   return (
     <section className="border-b">
-      <h3 className="px-4 pt-3 pb-1 text-xs font-medium text-muted-foreground">Запити на вступ · {list.length}</h3>
+      <h3 className="px-4 pt-3 pb-1 text-xs font-medium text-muted-foreground">{title} · {list.length}</h3>
       <ul>
         {list.map(({ user, createdAt }) => (
           <li key={user.id} className="flex items-center gap-3 px-4 py-2.5">

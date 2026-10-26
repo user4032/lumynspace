@@ -38,7 +38,7 @@ function RailContent({ trends, people, communities }: { trends: Trend[]; people:
           {trends.map((t, i) => (
             <li key={t.tag}>
               <Link
-                href={`/explore?q=${encodeURIComponent("#" + t.tag)}`}
+                href={`/hashtag/${t.tag}`}
                 className="group flex items-start gap-3 px-4 py-2 transition-colors hover:bg-subtle"
               >
                 <span className="mt-0.5 w-4 font-mono text-xs text-muted-foreground tabular">{i + 1}</span>

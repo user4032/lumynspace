@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { PenSquare, Search } from "lucide-react"
+import { PenSquare, Search, Users } from "lucide-react"
 import type { Conversation } from "@/types"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/user-avatar"
@@ -13,6 +13,20 @@ import { cn } from "@/lib/utils"
 import { isMockMode } from "@/lib/env"
 import { useRealtime } from "@/hooks/useRealtime"
 import { NewMessageDialog } from "./new-message-dialog"
+
+/** Аватар розмови: група — коло з іконкою, пряма — аватар співрозмовника */
+function ConversationAvatar({ c }: { c: Conversation }) {
+  if (c.group)
+    return (
+      <span className="relative inline-flex size-10 shrink-0 items-center justify-center rounded-full border bg-subtle">
+        <Users className="size-4.5 text-muted-foreground" />
+        <span className="absolute -right-0.5 -bottom-0.5 grid size-4.5 place-items-center rounded-full border-2 border-background bg-muted">
+          <UserAvatar user={c.group.members[0] ?? c.user} size="md" className="size-3 rounded-full" />
+        </span>
+      </span>
+    )
+  return <UserAvatar user={c.user} size="lg" showOnline />
+}
 
 export function ConversationList({ conversations, activeId, meId = "u_me" }: { conversations: Conversation[]; activeId?: string; meId?: string }) {
   const now = useNow()
@@ -31,7 +45,14 @@ export function ConversationList({ conversations, activeId, meId = "u_me" }: { c
     },
   })
   const q = query.trim().toLowerCase()
-  const shown = q ? conversations.filter((c) => c.user.name.toLowerCase().includes(q) || c.user.username.includes(q)) : conversations
+  const shown = q
+    ? conversations.filter(
+        (c) =>
+          (c.group ? c.group.title : c.user.name).toLowerCase().includes(q) ||
+          c.user.username.includes(q) ||
+          (c.group?.members.some((m) => m.name.toLowerCase().includes(q) || m.username.includes(q)) ?? false)
+      )
+    : conversations
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
@@ -63,16 +84,18 @@ export function ConversationList({ conversations, activeId, meId = "u_me" }: { c
                   active ? "bg-muted" : "hover:bg-subtle"
                 )}
               >
-                <UserAvatar user={c.user} size="lg" showOnline />
+                <ConversationAvatar c={c} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>{c.user.name}</span>
+                    <span className={cn("truncate text-sm", c.unread ? "font-semibold" : "font-medium")}>
+                      {c.group ? `${c.group.title} · ${c.group.members.length + 1}` : c.user.name}
+                    </span>
                     <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{last && now ? timeAgo(last.createdAt, now) : ""}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className={cn("truncate text-[13px]", c.unread ? "text-foreground" : "text-muted-foreground")}>
                       {last?.senderId === meId && <span className="text-muted-foreground">Ви: </span>}
-                      {last?.content}
+                      {!last?.content && last?.attachments?.length ? "Вкладення" : last?.content}
                     </span>
                     {c.unread > 0 && (
                       <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand px-1 font-mono text-[10px] font-semibold text-brand-foreground">

@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import Link from "next/link"
 import { useTheme } from "next-themes"
 import { motion } from "framer-motion"
 import { toast } from "sonner"
@@ -16,7 +15,7 @@ import { Switch } from "@/components/ui/switch"
 import { UserAvatar } from "@/components/user-avatar"
 import { useMounted, useThemeTransition } from "@/components/theme-toggle"
 import { BannerArt } from "@/components/profile/profile-banner"
-import { Sparkles, Flame, Moon, Laptop, Gamepad2, BookOpen, Plane, Flag } from "lucide-react"
+import { STATUS_ICONS, STATUS_ICON_KEYS, StatusIcon, isStatusIconKey } from "@/components/status-icon"
 import { Segmented } from "@/components/settings/settings-nav"
 import { ProfilePhotos } from "@/components/settings/profile-photos"
 import { DeleteAccountButton } from "@/components/settings/delete-account"
@@ -36,17 +35,6 @@ const BANNERS: { value: BannerStyle; label: string }[] = [
   { value: "grid", label: "Сітка" },
   { value: "solid", label: "Заливка" },
   { value: "image", label: "Фото" },
-]
-
-const STATUS_OPTIONS = [
-  { icon: Sparkles, label: "Онлайн" },
-  { icon: Flame, label: "У справах" },
-  { icon: Moon, label: "Відпочиваю" },
-  { icon: Laptop, label: "Працюю" },
-  { icon: Gamepad2, label: "Граю" },
-  { icon: BookOpen, label: "Вчуся" },
-  { icon: Plane, label: "У дорозі" },
-  { icon: Flag, label: "Україна" },
 ]
 
 const EXPIRY = [
@@ -110,7 +98,7 @@ function StylePreview() {
         <p className="text-xs text-muted-foreground">@{me.username}</p>
         {me.status && (
           <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs" style={{ borderColor: "color-mix(in oklab, var(--accent-user) 35%, var(--border))" }}>
-            <Quote className="size-3 shrink-0 text-[var(--accent-user)]" />
+            {isStatusIconKey(me.statusIcon) ? <StatusIcon icon={me.statusIcon} className="size-3 text-[var(--accent-user)]" /> : <Quote className="size-3 shrink-0 text-[var(--accent-user)]" />}
             <span className="truncate">{me.status}</span>
             {me.statusExpiresAt && <span className="shrink-0 font-mono text-[10px] text-muted-foreground">{remainingLabel(me.statusExpiresAt, now)}</span>}
           </p>
@@ -131,15 +119,19 @@ export function SettingsView() {
   const [name, setName] = useState(profile.name)
   const [bio, setBio] = useState(profile.bio)
   const [status, setStatus] = useState(profile.status)
+  const [statusIcon, setStatusIcon] = useState<string | null>(profile.statusIcon ?? null)
   const [expiry, setExpiry] = useState<ExpiryKey>(profile.statusExpiresAt ? "4h" : "never")
   const [track, setTrack] = useState(profile.nowPlaying ?? { title: "", artist: "" })
+  const [lastfm, setLastfm] = useState(profile.lastfmUsername ?? "")
 
   useEffect(() => {
     const t = setTimeout(() => {
       setName(profile.name)
       setBio(profile.bio)
       setStatus(profile.status)
+      setStatusIcon(profile.statusIcon ?? null)
       setTrack(profile.nowPlaying ?? { title: "", artist: "" })
+      setLastfm(profile.lastfmUsername ?? "")
     }, 0)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,7 +145,7 @@ export function SettingsView() {
   const saveProfile = async () => {
     const opt = EXPIRY.find((e) => e.value === expiry)!
     const statusExpiresAt = status.trim() && opt.ms ? new Date(now + opt.ms).toISOString() : null
-    const patch = { name: name.trim() || profile.name, bio, status: status.trim(), statusExpiresAt }
+    const patch = { name: name.trim() || profile.name, bio, status: status.trim(), statusExpiresAt, statusIcon: status.trim() ? statusIcon : null }
     viewerActions.updateProfile(patch)
     const res = await updateProfile(patch)
     if (res.ok) toast.success("Профіль збережено", { description: res.mock && isMockMode ? "Демо-режим: збережено в цьому браузері" : undefined })
@@ -170,7 +162,6 @@ export function SettingsView() {
     style({ top4: has ? profile.top4.filter((x) => x !== id) : [...profile.top4, id] })
   }
 
-  const connected = (profile as { spotifyConnected?: boolean }).spotifyConnected
 
   return (
     <>
@@ -198,10 +189,19 @@ export function SettingsView() {
               <Quote className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input id="status" value={status} maxLength={140} onChange={(e) => setStatus(e.target.value)} className="pl-8" placeholder="чим живете зараз?" />
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {STATUS_OPTIONS.map((s) => (
-                  <button key={s.label} type="button" onClick={() => setStatus(s.label)} className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs hover:bg-muted", status === s.label && "bg-muted")}>
-                    <s.icon className="size-3" />
-                    {s.label}
+                {STATUS_ICON_KEYS.map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={statusIcon === k}
+                    onClick={() => {
+                      setStatusIcon(statusIcon === k ? null : k)
+                      if (!status.trim()) setStatus(STATUS_ICONS[k].label)
+                    }}
+                    className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs hover:bg-muted", statusIcon === k && "border-foreground bg-muted")}
+                  >
+                    <StatusIcon icon={k} className="size-3.5" />
+                    {STATUS_ICONS[k].label}
                   </button>
                 ))}
               </div>
@@ -291,23 +291,23 @@ export function SettingsView() {
 
             <div>
               <Label className="mb-2.5"><Music2 className="size-4" /> Зараз грає</Label>
-              {connected ? (
-  <div className="flex items-center gap-3">
-    <span className="inline-flex items-center gap-1.5 text-sm text-green-500"><Music2 className="size-4" /> Spotify підключено</span>
-    <Button variant="ghost" size="sm" onClick={async () => {
-      await updateProfile({ widgets: { spotify_token: null, spotify_refresh: null } } as Parameters<typeof updateProfile>[0])
-      toast.success("Spotify відключено")
-      location.reload()
-    }}>Від&apos;єднати</Button>
-  </div>
-) : (
-                <div className="flex items-center gap-3">
-  <Button variant="secondary" size="sm" asChild>
-    <Link href="/api/spotify/login" prefetch={false}><Music2 className="size-4" /> Підключити Spotify</Link>
-  </Button>
-  <span className="text-xs text-muted-foreground">або введи вручну</span>
-</div>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={lastfm}
+                  maxLength={15}
+                  placeholder="Нік у Last.fm"
+                  aria-label="Нік у Last.fm"
+                  className="max-w-56"
+                  onChange={(e) => setLastfm(e.target.value)}
+                  onBlur={() => {
+                    if (lastfm.trim() === (profile.lastfmUsername ?? "")) return
+                    style({ lastfmUsername: lastfm.trim() })
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Підключіть Spotify/Apple Music до <a href="https://www.last.fm/settings/applications" target="_blank" rel="noreferrer" className="underline">Last.fm</a> — трек підтягнеться сам. Або введіть вручну:
+                </span>
+              </div>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <Input value={track.title} maxLength={60} placeholder="Трек" onChange={(e) => setTrack((t) => ({ ...t, title: e.target.value }))} onBlur={() => style({ nowPlaying: track.title.trim() ? { title: track.title.trim(), artist: track.artist.trim() } : null })} />
                 <Input value={track.artist} maxLength={60} placeholder="Виконавець" onChange={(e) => setTrack((t) => ({ ...t, artist: e.target.value }))} onBlur={() => style({ nowPlaying: track.title.trim() ? { title: track.title.trim(), artist: track.artist.trim() } : null })} />

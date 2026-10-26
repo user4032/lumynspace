@@ -55,6 +55,11 @@ export type User = {
   widgets?: ProfileWidgets
   /** Коли статус зникне (ISO). null — назавжди */
   statusExpiresAt?: string | null
+  /** ключ іконки статусу (STATUS_ICONS) */
+  statusIcon?: string | null
+  /** рамка профілю (0016) */
+  frame?: string | null
+  frameExpiresAt?: string | null
   isPrivate?: boolean
   dmPolicy?: DmPolicy
 }
@@ -83,6 +88,10 @@ export type Post = {
   reposts: number
   reposted: boolean
   repostedBy?: User | null
+  /** цитований допис (мій допис із репостом + текстом) */
+  quote?: Post | null
+  /** допис відредаговано автором */
+  edited?: boolean
   replyTo?: string | null
   /** permanent — звичайний допис; glow — живе 24 год, світло продовжує життя */
   mode: PostMode
@@ -113,6 +122,8 @@ export type Community = {
   members: number
   postsPerDay: number
   isPrivate: boolean
+  /** показувати список учасників (0025); за замовчуванням true */
+  membersVisible?: boolean
   role?: CommunityRole | null
   /** приватна спільнота: мій запит на вступ очікує розгляду */
   requested?: boolean
@@ -120,11 +131,87 @@ export type Community = {
   hue: number
 }
 
+/** Знімок історії у відповіді: прев'ю живе у чаті навіть після 24 годин. */
+export type ChatStorySnapshot = {
+  id: string
+  mediaUrl: string
+  mime: string
+  durationSec: number
+  caption: string | null
+  createdAt: string
+  author: {
+    id: string
+    username: string
+    name: string
+    avatarUrl: string | null
+  }
+}
+
+/** Вкладення повідомлення (приватний бакет chat-files або знімок історії) */
+export type ChatAttachment = {
+  kind: "image" | "file" | "audio" | "story"
+  path: string
+  name: string
+  size: number
+  mime: string
+  width?: number
+  height?: number
+  /** голосове: тривалість у секундах */
+  duration?: number
+  /** kind === "story": дані для прев'ю у чаті */
+  story?: ChatStorySnapshot
+}
+
+export type MessageReaction = { emoji: string; count: number; mine: boolean }
+
+/** Сторіс (0015): фото/відео на 24 год + взаємодії (0024) */
+export type Story = {
+  id: string
+  mediaUrl: string
+  mime: string
+  durationSec: number
+  caption: string | null
+  createdAt: string
+  seen: boolean
+  /** перегляди (точно для власних сторіс) */
+  viewCount: number
+  /** «світло» на сторіс */
+  lightCount: number
+  /** усього реакцій */
+  reactionCount: number
+  litByMe: boolean
+  myReaction: string | null
+}
+
+/** Група сторіс одного автора для смуги над стрічкою */
+export type StoryGroup = {
+  author: Pick<User, "id" | "username" | "name" | "avatarUrl" | "verified" | "frame" | "frameExpiresAt">
+  isMe: boolean
+  stories: Story[]
+}
+
+/** Короткий профіль у статистиці сторіс */
+export type StoryActor = Pick<User, "id" | "username" | "name" | "avatarUrl" | "verified">
+
+/** Детальна статистика власного сторіс (автор бачить, хто дивився / світив / реагував) */
+export type StoryInsights = {
+  views: { user: StoryActor; at: string }[]
+  lights: { user: StoryActor; at: string }[]
+  reactions: { emoji: string; users: StoryActor[] }[]
+}
+
 export type Message = {
   id: string
   senderId: string
   content: string
   createdAt: string
+  /** відповідь на конкретне повідомлення (0014) */
+  replyTo?: string | null
+  /** реакції (агреговані, 0014) */
+  reactions?: MessageReaction[]
+  attachments?: ChatAttachment[]
+  /** 0021: повідомлення відредаговане */
+  editedAt?: string | null
 }
 
 export type Conversation = {
@@ -132,6 +219,10 @@ export type Conversation = {
   user: User
   messages: Message[]
   unread: number
+  /** групова розмова (is_group): назва й учасники замість одного співрозмовника */
+  group?: { title: string; members: User[] }
+  /** 0001: творець розмови = адмін групи (може видаляти будь-які повідомлення) */
+  createdBy?: string | null
 }
 
 export type Notification = {
@@ -139,6 +230,8 @@ export type Notification = {
   type: NotificationType
   actor: User
   postId?: string | null
+  /** 0023: рамка, термін дії якої минув */
+  frameKey?: string | null
   preview?: string
   createdAt: string
   read: boolean

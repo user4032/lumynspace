@@ -1,11 +1,13 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useOptimistic, useState, useTransition } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { BarChart3, Bookmark, Download, ImageIcon, Link2, MessageCircle, Repeat2, Share } from "lucide-react"
+import { BarChart3, Bookmark, Code2, Download, ImageIcon, Link2, MessageCircle, Repeat2, Share } from "lucide-react"
 import { toast } from "sonner"
 import type { Post } from "@/types"
-import { toggleRepost } from "@/lib/actions/posts"
+import { toggleBookmark, toggleRepost } from "@/lib/actions/posts"
+import { useViewer, viewerActions } from "@/lib/viewer-store"
 import { formatCount } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
@@ -76,6 +78,11 @@ export function ShareMenu({ post, iconClass, children }: { post: Post; iconClass
     await navigator.clipboard?.writeText(url).catch(() => {})
     toast.success("Посилання скопійовано")
   }
+  const copyEmbed = async () => {
+    const html = `<iframe src="${window.location.origin}/embed/${post.id}" width="550" height="320" style="border:0;border-radius:12px;overflow:hidden" loading="lazy" title="Допис у Lumyn"></iframe>`
+    await navigator.clipboard?.writeText(html).catch(() => {})
+    toast.success("Код для вбудовування скопійовано")
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -93,6 +100,9 @@ export function ShareMenu({ post, iconClass, children }: { post: Post; iconClass
         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Поділитися</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => void copy()}>
           <Link2 /> Копіювати посилання
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void copyEmbed()}>
+          <Code2 /> Копіювати код для вбудовування
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <a href={`/api/share/${post.id}?download=1`} download={`lumyn-${post.id}.png`} onClick={() => toast("Готуємо картинку 1080×1350…")}>
@@ -112,11 +122,43 @@ export function ShareMenu({ post, iconClass, children }: { post: Post; iconClass
 
 type LightProps = { lights: number; lit: boolean; toggle: () => void }
 
-export function PostActions({ post, light, size = "md" }: { post: Post; light: LightProps; size?: "md" | "lg" }) {
+export function PostActions({
+  post,
+  light,
+  size = "md",
+  views,
+  onReply,
+}: {
+  post: Post
+  light: LightProps
+  size?: "md" | "lg"
+  /** справжні перегляди (view_count з БД, оновлюється hook'ом usePostViews) */
+  views?: number
+  /** відкрити відповідь; без пропа — перехід на сторінку поста з фокусом на композері */
+  onReply?: () => void
+}) {
+  const router = useRouter()
   const [counts, setCounts] = useState({ reposts: post.reposts, reposted: post.reposted })
   const [optimistic, setOptimistic] = useOptimistic(counts)
   const [, startTransition] = useTransition()
-  const [saved, setSaved] = useState(false)
+  const saved = useViewer((s) => s.bookmarks.includes(post.id))
+
+  const bookmark = () => {
+    const next = !saved
+    viewerActions.toggle("bookmarks", post.id, next)
+    startTransition(async () => {
+      const res = await toggleBookmark(post.id, next)
+      if (!res.ok) {
+        viewerActions.toggle("bookmarks", post.id, !next)
+        toast.error(res.error)
+      } else toast(next ? "Додано в закладки" : "Видалено із закладок")
+    })
+  }
+
+  const reply = () => {
+    if (onReply) onReply()
+    else router.push(`/post/${post.id}?compose=1`)
+  }
 
   const repost = () => {
     const next = { reposted: !counts.reposted, reposts: counts.reposts + (counts.reposted ? -1 : 1) }
@@ -135,7 +177,7 @@ export function PostActions({ post, light, size = "md" }: { post: Post; light: L
 
   return (
     <div className={cn("flex items-center justify-between", size === "lg" ? "max-w-none" : "max-w-[440px]")}>
-      <ActionButton label="Відповісти" className="hover:text-foreground">
+      <ActionButton label="Відповісти" onClick={reply} className="hover:text-foreground">
         <span className={cn(hoverBg, "group-hover/action:bg-muted")}>
           <MessageCircle className={icon} />
         </span>
@@ -164,17 +206,14 @@ export function PostActions({ post, light, size = "md" }: { post: Post; light: L
         <span className={cn(hoverBg, "group-hover/action:bg-muted")}>
           <BarChart3 className={icon} />
         </span>
-        <AnimatedCount value={post.lights * 9 + post.replies * 31} />
+        <AnimatedCount value={views ?? post.views ?? 0} />
       </ActionButton>
 
       <div className="flex items-center">
         <ActionButton
           label="Зберегти"
           active={saved}
-          onClick={() => {
-            setSaved((s) => !s)
-            toast(saved ? "Видалено із закладок" : "Додано в закладки")
-          }}
+          onClick={bookmark}
           className={cn("ml-0 pr-0 hover:text-foreground", saved && "text-foreground")}
         >
           <span className={cn(hoverBg, "group-hover/action:bg-muted")}>

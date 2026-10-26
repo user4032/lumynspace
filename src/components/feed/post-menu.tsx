@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { Ban, EyeOff, ExternalLink, Flag, MoreHorizontal, Trash2, User as UserIcon, Volume2, VolumeX } from "lucide-react"
+import { Ban, EyeOff, ExternalLink, Flag, MoreHorizontal, Pencil, Quote, Trash2, User as UserIcon, Volume2, VolumeX } from "lucide-react"
 import type { Post } from "@/types"
 import { deletePost } from "@/lib/actions/posts"
 import {
@@ -17,9 +18,10 @@ import { useModeration } from "@/components/moderation/use-moderation"
 import { useMe, useViewer } from "@/lib/viewer-store"
 import { cn } from "@/lib/utils"
 
-export function PostMenu({ post, className }: { post: Post; className?: string }) {
+export function PostMenu({ post, className, onEdit }: { post: Post; className?: string; onEdit?: () => void }) {
   const [reportOpen, setReportOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const router = useRouter()
   const muted = useViewer((s) => s.muted.includes(post.author.id))
   const mod = useModeration()
   const meId = useMe().id
@@ -46,9 +48,18 @@ export function PostMenu({ post, className }: { post: Post; className?: string }
             </Link>
           </DropdownMenuItem>
 
+          <DropdownMenuItem onSelect={() => router.push(`/post/${post.id}?quote=1`)}>
+            <Quote /> Цитувати
+          </DropdownMenuItem>
+
           {mine && (
             <>
               <DropdownMenuSeparator />
+              {onEdit && (
+                <DropdownMenuItem onSelect={onEdit}>
+                  <Pencil /> Редагувати
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
                 <Trash2 /> Видалити
               </DropdownMenuItem>

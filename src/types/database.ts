@@ -24,6 +24,7 @@ export type NotificationType =
   | "mention"
   | "message"
   | "friend_joined"
+  | "frame_expired"
 
 export type PostMode = "permanent" | "glow"
 export type PostAudience = "public" | "close_friends" | "circle"
@@ -54,7 +55,15 @@ export type ImageMedia = {
 }
 export type CodeMedia = { type: "code"; lang: string; code: string; filename?: string }
 export type PollMedia = { type: "poll"; options: string[]; ends_at?: string }
-export type PostMedia = ImageMedia | CodeMedia | PollMedia
+export type VideoMedia = {
+  type: "video"
+  url: string
+  mime?: string
+  width?: number
+  height?: number
+  poster?: string
+}
+export type PostMedia = ImageMedia | VideoMedia | CodeMedia | PollMedia
 
 /** profiles.widgets */
 export type ProfileWidgets = {
@@ -95,9 +104,14 @@ export type ProfileRow = Timestamps & {
   is_private: boolean
   dm_policy: DmPolicy
   hide_following?: boolean
+  verified?: boolean
+  is_admin?: boolean
   onboarded_at: string | null
   invited_by: string | null
   updated_at: string
+  /** 0016: рамка профілю за промокодом */
+  frame?: string | null
+  frame_expires_at?: string | null
 }
 
 export type CommunityRow = Timestamps & {
@@ -108,6 +122,8 @@ export type CommunityRow = Timestamps & {
   avatar_url: string | null
   cover_url: string | null
   is_private: boolean
+  /** 0025: показувати список учасників */
+  members_visible?: boolean
   owner_id: string
   member_count: number
   updated_at: string
@@ -136,9 +152,19 @@ export type PostRow = Timestamps & {
   audience: PostAudience
   circle_id: string | null
   updated_at: string
+  /** 0013: допис відредаговано автором */
+  edited_at?: string | null
 }
 
 export type LightRow = Timestamps & { user_id: string; post_id: string }
+export type BookmarkRow = Timestamps & { user_id: string; post_id: string }
+export type PushSubscriptionRow = Timestamps & {
+  user_id: string
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_agent: string | null
+}
 export type PollVoteRow = Timestamps & {
   post_id: string
   user_id: string
@@ -167,7 +193,36 @@ export type MessageRow = Timestamps & {
   sender_id: string
   content: string
   edited_at: string | null
+  /** 0014 */
+  reply_to?: string | null
 }
+
+export type MessageReactionRow = Timestamps & {
+  message_id: string
+  user_id: string
+  emoji: string
+}
+
+/** 0015: сторіс */
+export type StoryRow = Timestamps & {
+  id: string
+  author_id: string
+  media_url: string
+  mime: string
+  duration_sec: number
+  caption: string | null
+  audience: PostAudience
+  circle_id: string | null
+  expires_at: string
+}
+
+export type StoryViewRow = { story_id: string; viewer_id: string; viewed_at: string }
+
+/** 0024: «світло» на сторіс (одне на користувача) */
+export type StoryLightRow = { story_id: string; user_id: string; created_at: string }
+
+/** 0024: реакція на сторіс (одна на користувача, можна змінити) */
+export type StoryReactionRow = { story_id: string; user_id: string; emoji: string; created_at: string }
 
 export type NotificationRow = Timestamps & {
   id: string
@@ -176,7 +231,18 @@ export type NotificationRow = Timestamps & {
   type: NotificationType
   post_id: string | null
   conversation_id: string | null
+  /** 0023: ключ рамки для сповіщення frame_expired */
+  frame_key: string | null
   read_at: string | null
+}
+
+/** 0023: рамки, які користувач уже активував (колекція) */
+export type UserFrameRow = {
+  user_id: string
+  frame: string
+  expires_at: string | null
+  code: string | null
+  acquired_at: string
 }
 
 export type CommunityJoinRequestRow = { community_id: string; user_id: string; created_at: string }
@@ -211,6 +277,13 @@ export type FeedPostRow = PostRow & {
   author_accent_color: string
   viewer_has_lit: boolean
   viewer_has_reposted: boolean
+  author_verified?: boolean
+  view_count?: number
+  author_frame?: string | null
+  author_frame_expires_at?: string | null
+  /** 0025: спільнота, у якій опубліковано допис */
+  community_slug?: string | null
+  community_name?: string | null
 }
 
 export type ForYouRow = {
@@ -240,6 +313,22 @@ export type Database = {
       community_members: Table<CommunityMemberRow, "community_id" | "user_id">
       posts: Table<PostRow, "author_id">
       lights: Table<LightRow, "user_id" | "post_id">
+      /** 0011: закладки дописів */
+      bookmarks: Table<BookmarkRow, "user_id" | "post_id">
+      /** 0012: web push-підписки (VAPID) */
+      push_subscriptions: Table<PushSubscriptionRow, "user_id" | "endpoint" | "p256dh" | "auth">
+      /** 0014: реакції на повідомлення */
+      message_reactions: Table<MessageReactionRow, "message_id" | "user_id" | "emoji">
+      /** 0016: коди рамок (доступ лише через RPC) */
+      frame_codes: { Row: { code: string; frame: string; duration_days: number; used_by: string | null; used_at: string | null; revoked: boolean; created_at: string }; Insert: { code: string; frame: string; created_by: string }; Update: Record<string, never>; Relationships: [] }
+      /** 0023: колекція активованих рамок */
+      user_frames: Table<UserFrameRow, "user_id" | "frame">
+      /** 0015: сторіс (24 год) */
+      stories: Table<StoryRow, "author_id" | "media_url" | "mime">
+      story_views: Table<StoryViewRow, "story_id" | "viewer_id">
+      /** 0024: взаємодії зі сторіс */
+      story_lights: Table<StoryLightRow, "story_id" | "user_id">
+      story_reactions: Table<StoryReactionRow, "story_id" | "user_id" | "emoji">
       poll_votes: Table<PollVoteRow, "post_id" | "user_id" | "option_index">
       follows: Table<FollowRow, "follower_id" | "following_id">
       conversations: Table<ConversationRow, never>
@@ -262,6 +351,8 @@ export type Database = {
     }
     Functions: {
       start_direct_conversation: { Args: { other_user: string }; Returns: string }
+      /** 0021: видалити повідомлення (автор або адмін групи) */
+      delete_message: { Args: { p_message: string }; Returns: boolean }
       is_community_member: { Args: { cid: string }; Returns: boolean }
       is_conversation_member: { Args: { conv: string }; Returns: boolean }
       can_view_community: { Args: { cid: string }; Returns: boolean }
@@ -289,6 +380,26 @@ export type Database = {
       mark_conversation_read: { Args: { p_conversation: string }; Returns: undefined }
       respond_join_request: { Args: { p_community: string; p_user: string; p_accept: boolean }; Returns: undefined }
       delete_my_account: { Args: Record<string, never>; Returns: undefined }
+      /** 0007: записати мій перегляд (1 на користувача) і повернути актуальну кількість */
+      record_post_view: { Args: { p_post: string }; Returns: number }
+      post_view_count: { Args: { p_post: string }; Returns: number }
+      /** 0012: web push + аналітика */
+      push_endpoints_for: { Args: { p_user: string }; Returns: Json }
+      push_remove_endpoint: { Args: { p_endpoint: string }; Returns: undefined }
+      author_stats: { Args: Record<string, never>; Returns: Json }
+      can_view_story: { Args: { sid: string }; Returns: boolean }
+      /** 0016: рамки за промокодами */
+      create_frame_codes: { Args: { p_frame: string; p_count: number; p_days: number }; Returns: string[] }
+      list_frame_codes: {
+        Args: Record<string, never>
+        Returns: { code: string; frame: string; duration_days: number; used_by: string | null; used_username: string | null; used_at: string | null; revoked: boolean; created_at: string }[]
+      }
+      activate_frame_code: { Args: { p_code: string }; Returns: { frame: string; expires_at: string | null } }
+      revoke_frame_code: { Args: { p_code: string }; Returns: undefined }
+      clear_my_frame: { Args: Record<string, never>; Returns: undefined }
+      /** 0023: обрати рамку з колекції та прибрати протухлі */
+      select_my_frame: { Args: { p_frame: string }; Returns: { frame: string; expires_at: string | null } }
+      sync_expired_frames: { Args: Record<string, never>; Returns: number }
     }
     Enums: {
       community_role: CommunityRole

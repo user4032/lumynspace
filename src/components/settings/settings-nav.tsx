@@ -3,12 +3,14 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { Palette, Shield } from "lucide-react"
+import { Palette, Shield, ChartColumn, Sparkles } from "lucide-react"
 import { CloseFriendsIcon } from "@/components/icons"
 import { cn } from "@/lib/utils"
 
 export const SETTINGS_NAV = [
   { href: "/settings", label: "Профіль і стиль", icon: Palette },
+  { href: "/settings/frames", label: "Рамки", icon: Sparkles },
+  { href: "/settings/analytics", label: "Ваша активність", icon: ChartColumn },
   { href: "/settings/privacy", label: "Приватність і безпека", icon: Shield },
   { href: "/settings/close-friends", label: "Близькі друзі", icon: CloseFriendsIcon },
 ] as const

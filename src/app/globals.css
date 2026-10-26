@@ -157,6 +157,41 @@
   :focus-visible {
     outline-offset: 2px;
   }
+
+  /* Скролбар у стилі macOS: тонкий, округлий, без кнопок і рамок.
+     .no-scrollbar має вищу специфічність і далі повністю ховає скролбар. */
+  *::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklab, var(--foreground) 20%, transparent);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 34%, transparent);
+  }
+  *::-webkit-scrollbar-thumb:active {
+    background-color: color-mix(in oklab, var(--foreground) 46%, transparent);
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  /* Firefox: стандартні властивості лише там, де немає WebKit-псевдоелементів */
+  @supports not selector(::-webkit-scrollbar) {
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklab, var(--foreground) 24%, transparent) transparent;
+    }
+  }
 }
 
 @layer utilities {
@@ -399,4 +434,290 @@
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/* ── Знак верифікації: рідкісний відблиск по печатці ── */
+.lumyn-verified-shine {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 0.7A3.52 3.52 0 0 1 11.65 1.68A3.52 3.52 0 0 1 14.32 4.35A3.52 3.52 0 0 1 15.3 8A3.52 3.52 0 0 1 14.32 11.65A3.52 3.52 0 0 1 11.65 14.32A3.52 3.52 0 0 1 8 15.3A3.52 3.52 0 0 1 4.35 14.32A3.52 3.52 0 0 1 1.68 11.65A3.52 3.52 0 0 1 0.7 8A3.52 3.52 0 0 1 1.68 4.35A3.52 3.52 0 0 1 4.35 1.68A3.52 3.52 0 0 1 8 0.7ZM8 3C8.42 6.1 9.79 7.55 12.7 8C9.79 8.45 8.42 9.9 8 13C7.58 9.9 6.21 8.45 3.3 8C6.21 7.55 7.58 6.1 8 3Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 0.7A3.52 3.52 0 0 1 11.65 1.68A3.52 3.52 0 0 1 14.32 4.35A3.52 3.52 0 0 1 15.3 8A3.52 3.52 0 0 1 14.32 11.65A3.52 3.52 0 0 1 11.65 14.32A3.52 3.52 0 0 1 8 15.3A3.52 3.52 0 0 1 4.35 14.32A3.52 3.52 0 0 1 1.68 11.65A3.52 3.52 0 0 1 0.7 8A3.52 3.52 0 0 1 1.68 4.35A3.52 3.52 0 0 1 4.35 1.68A3.52 3.52 0 0 1 8 0.7ZM8 3C8.42 6.1 9.79 7.55 12.7 8C9.79 8.45 8.42 9.9 8 13C7.58 9.9 6.21 8.45 3.3 8C6.21 7.55 7.58 6.1 8 3Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  background: linear-gradient(110deg, transparent 38%, color-mix(in oklab, var(--background) 55%, transparent) 50%, transparent 62%) 200% 0 / 250% 100% no-repeat;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lumyn-verified-shine { animation: lumyn-verified-shine 7s ease-in-out infinite; }
+}
+@keyframes lumyn-verified-shine {
+  0%, 75% { background-position: 200% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* ── Рамки профілю (0016/0017) — маскове кільце ::before ────────────
+   Кільце малюється ЗОВНІ аватара (негативний inset + radial-mask),
+   тому сам аватар не перекривається; обертання — лише transform. */
+.avatar-frame {
+  --frame-w: 3px;   /* товщина кільця */
+  --frame-gap: 3px; /* зазор між аватаром і кільцем */
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+}
+.avatar-frame::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * (var(--frame-w) + var(--frame-gap)));
+  z-index: -1;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: var(--frame-gradient, transparent);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w) - 0.5px), #000 calc(100% - var(--frame-w)));
+          mask: radial-gradient(farthest-side, transparent calc(100% - var(--frame-w) - 0.5px), #000 calc(100% - var(--frame-w)));
+  will-change: transform;
+}
+/* зазор-фон між аватаром і кільцем */
+.avatar-frame > .avatar-inner {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 9999px;
+  background: var(--background);
+}
+/* індикатор «в мережі» — поверх будь-якої рамки (оверлеї мають z-index 2) */
+.avatar-frame > .avatar-status {
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* базова четвірка */
+.frame-light { --frame-gradient: conic-gradient(from 140deg, #7c5cff, #4f8cff, #7af0ff, #7c5cff); }
+.frame-glow {
+  --frame-gradient: conic-gradient(from 0deg, #f59e0b, #f43f5e, #fb923c, #f59e0b);
+}
+.frame-glow::before { animation: frame-glow-warm 2.4s ease-in-out infinite; }
+.frame-aurora {
+  --frame-gradient: conic-gradient(from 0deg, #10b981, #22d3ee, #a78bfa, #10b981);
+}
+.frame-aurora::before { animation: frame-spin 7s linear infinite; }
+.frame-star {
+  --frame-gradient: conic-gradient(from 0deg, #7c5cff, #ec4899, #22d3ee, #7c5cff);
+}
+.frame-star::before { animation: frame-spin 5s linear infinite, frame-glow-violet 4s ease-in-out infinite; }
+.frame-star::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 12% 20%, #fff 0 1.5px, transparent 2px),
+    radial-gradient(circle at 85% 30%, #fff 0 1.5px, transparent 2px),
+    radial-gradient(circle at 70% 88%, #fff 0 1.5px, transparent 2px),
+    radial-gradient(circle at 25% 80%, #fff 0 1.5px, transparent 2px);
+  filter: drop-shadow(0 0 3px #fff);
+  animation: frame-spin 6s linear infinite reverse;
+  pointer-events: none;
+}
+
+/* хелловін-лімітед: ілюстровані накладки поверх аватара (Discord-стиль).
+   PNG із прозорим круглим вирізом; inset/translate підібрані під геометрію
+   кожної картинки, щоб виріз точно накривав аватар. */
+.frame-hw-pumpkin,
+.frame-hw-ghost,
+.frame-hw-witch {
+  --frame-w: 0px;
+  --frame-gap: 0px;
+}
+.frame-hw-pumpkin::before,
+.frame-hw-ghost::before,
+.frame-hw-witch::before {
+  content: none;
+}
+.frame-hw-pumpkin > .avatar-inner,
+.frame-hw-ghost > .avatar-inner,
+.frame-hw-witch > .avatar-inner {
+  padding: 0;
+  background: none;
+}
+.frame-hw-pumpkin::after,
+.frame-hw-ghost::after,
+.frame-hw-witch::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+.frame-hw-pumpkin::after { background-image: url("/frames/hw-pumpkin.png"); z-index: 2; }
+.frame-hw-ghost::after { background-image: url("/frames/hw-ghost.png"); z-index: 2; }
+.frame-hw-witch::after {
+  background-image: url("/frames/hw-witch.png");
+  width: 165%; /* полотно більше — мітла йде нижче */
+  z-index: 2;  /* мітла поверх аватара */
+}
+
+/* приховані рамки (лише промокоди, у каталозі їх немає).
+   PNG 512×512 з прозорим центром: коло аватара = 83.3% полотна -> inset -10%
+   (тримається впритул, як light/aurora, без виступів далеко від аватара). */
+.frame-venom,
+.frame-claws,
+.frame-evil {
+  --frame-w: 0px;
+  --frame-gap: 0px;
+}
+.frame-venom::before,
+.frame-claws::before,
+.frame-evil::before { content: none; }
+.frame-venom > .avatar-inner,
+.frame-claws > .avatar-inner,
+.frame-evil > .avatar-inner {
+  padding: 0;
+  background: none;
+}
+.frame-venom::after,
+.frame-claws::after,
+.frame-evil::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  pointer-events: none;
+  z-index: 2;
+}
+.frame-venom::after { background-image: url("/frames/venom.png"); }
+.frame-claws::after { background-image: url("/frames/claws.png"); }
+.frame-evil::after { background-image: url("/frames/evil.png"); }
+
+@keyframes frame-spin { to { transform: rotate(360deg); } }
+@keyframes frame-glow-warm {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(255, 138, 61, 0.35)); }
+  50%      { filter: drop-shadow(0 0 7px rgba(255, 138, 61, 0.65)); }
+}
+@keyframes frame-glow-violet {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(124, 58, 237, 0.35)); }
+  50%      { filter: drop-shadow(0 0 7px rgba(168, 85, 247, 0.7)); }
+}
+@keyframes frame-float {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-frame::before,
+  .frame-star::after { animation: none; }
+}
+
+/* ── Кнопка «Купити» (Telegram) ─────────────────────────────────── */
+.buy-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 18px;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* тон за замовчуванням — світла тема: біла поверхня, чорний текст */
+  --buy-surface: #ffffff;
+  --buy-surface-hover: #f1f9fe;
+  --buy-fg: #0f0f0f;
+  --buy-ring: rgba(34, 158, 217, 0.28);
+  --buy-ring-hover: rgba(34, 158, 217, 0.45);
+  --buy-shadow: rgba(0, 0, 0, 0.1);
+
+  color: var(--buy-fg);
+}
+
+/* темна тема — темна поверхня й світлий текст, щоб кнопка не «вибивала» око */
+.dark .buy-btn {
+  --buy-surface: #15191d;
+  --buy-surface-hover: #1d2329;
+  --buy-fg: #ededed;
+  --buy-ring: rgba(42, 171, 238, 0.3);
+  --buy-ring-hover: rgba(42, 171, 238, 0.55);
+  --buy-shadow: rgba(0, 0, 0, 0.6);
+}
+
+.buy-btn__bg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--buy-surface);
+  box-shadow:
+    0 1px 2px var(--buy-shadow),
+    inset 0 0 0 1px var(--buy-ring);
+  transition: box-shadow 0.2s, background-color 0.2s, transform 0.15s;
+}
+.buy-btn:hover .buy-btn__bg,
+.buy-btn:focus-visible .buy-btn__bg {
+  background: var(--buy-surface-hover);
+  box-shadow:
+    0 2px 10px var(--buy-ring-hover),
+    inset 0 0 0 1px var(--buy-ring-hover);
+}
+.buy-btn:active .buy-btn__bg { transform: scale(0.96); }
+.buy-btn__label {
+  position: relative;
+  transition: transform 0.2s;
+}
+.buy-btn:hover .buy-btn__label { transform: translateX(2px); }
+.buy-btn__icon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+}
+.buy-btn:hover .buy-btn__icon,
+.buy-btn:focus-visible .buy-btn__icon {
+  transform: scale(1);
+  opacity: 1;
+}
+.buy-btn__icon .plane { transform-origin: 12px 12px; }
+.buy-btn:hover .buy-btn__icon .plane {
+  animation: buy-plane-tilt 1.6s ease-in-out infinite;
+}
+@keyframes buy-plane-tilt {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  50% { transform: translateX(1.2px) rotate(6deg); }
+}
+.buy-btn__fly {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 6px);
+  width: 26px;
+  height: 26px;
+  margin-left: -13px;
+  pointer-events: none;
+  opacity: 0;
+}
+.buy-btn__fly.go {
+  animation: buy-fly 0.85s cubic-bezier(0.2, 0.6, 0.35, 1) forwards;
+}
+@keyframes buy-fly {
+  0% { opacity: 0; transform: translateY(8px) scale(0.4); }
+  15% { opacity: 1; transform: translateY(-8px) scale(1); }
+  100% { opacity: 0; transform: translateY(-76px) scale(0.9) rotate(14deg); }
 }

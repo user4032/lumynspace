@@ -1,8 +1,8 @@
-import type { FeedPage, FeedQuery, FeedTab, Post, PostReason } from "@/types"
+import type { FeedPage, FeedQuery, FeedTab, PostReason } from "@/types"
 import type { FeedPostRow, ForYouRow } from "@/types/database"
 import { getMockFeedPage, PAGE_SIZE } from "./mock-data"
 import { getSupabaseBrowserClient } from "./supabase/client"
-import { mapFeedRow } from "./feed-map"
+import { mapFeedRow, resolveFeedRows } from "./feed-map"
 
 export { mapFeedRow }
 
@@ -23,7 +23,8 @@ export async function fetchFeedPage(tab: FeedTab, q: FeedQuery): Promise<FeedPag
     const { data, error } = await supabase.rpc("following_feed", { p_limit: PAGE_SIZE, p_before: q.before ?? null })
     if (error) throw error
     const rows = (data ?? []) as FeedPostRow[]
-    return { posts: rows.map((r) => mapFeedRow(r)), nextCursor: rows.length === PAGE_SIZE ? q.cursor + 1 : null }
+    const posts = await resolveFeedRows(supabase, rows)
+    return { posts, nextCursor: rows.length === PAGE_SIZE ? q.cursor + 1 : null }
   }
 
   // Ранжування на сервері; offset = вже показані (після зміни тюнера список переранжовується)
@@ -50,22 +51,23 @@ export async function fetchFeedPage(tab: FeedTab, q: FeedQuery): Promise<FeedPag
   const actorById = new Map((actors.data ?? []).map((a) => [a.id, a]))
   const commById = new Map((comms.data ?? []).map((c) => [c.id, c]))
 
-  const posts = order
-    .map((r) => {
-      const row = byId.get(r.post_id)
-      if (!row) return null
+  const posts = (await resolveFeedRows(supabase, order.flatMap((r) => {
+    const row = byId.get(r.post_id)
+    if (!row) return []
+    return [row]
+  })))
+    .map((base) => {
+      const r = order.find((o) => o.post_id === base.id)
+      if (!r?.reason) return base
       const actor = r.reason_actor_id ? actorById.get(r.reason_actor_id) : null
       const community = r.reason_community_id ? commById.get(r.reason_community_id) : null
-      const reason: PostReason | null = r.reason
-        ? {
-            type: r.reason,
-            actor: actor ? { id: actor.id, username: actor.username, name: actor.display_name || actor.username } : null,
-            community: community ? { slug: community.slug, name: community.name } : null,
-          }
-        : null
-      return mapFeedRow(row, reason)
+      const reason: PostReason = {
+        type: r.reason,
+        actor: actor ? { id: actor.id, username: actor.username, name: actor.display_name || actor.username } : null,
+        community: community ? { slug: community.slug, name: community.name } : null,
+      }
+      return { ...base, reason }
     })
-    .filter((p): p is Post => p !== null)
     .filter((p) => !q.hiddenAuthors?.includes(p.author.id))
 
   return { posts, nextCursor: order.length === PAGE_SIZE ? q.cursor + 1 : null }

@@ -24,7 +24,7 @@ import { EmojiPicker } from "@/components/ui/emoji-picker"
 import { nowISO } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { isMockMode } from "@/lib/env"
-import { IMAGE_ACCEPT, imageSize, uploadImage } from "@/lib/storage"
+import { POST_MEDIA_ACCEPT, imageSize, isVideoFile, uploadImage, videoSize } from "@/lib/storage"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 
 const MAX = 500
@@ -206,7 +206,10 @@ export function Composer({
   compact = false,
   communityId = null,
   replyTo = null,
+  quote = null,
+  onCancelQuote,
   submitLabel = "Опублікувати",
+  focusSignal = 0,
 }: {
   onPublish?: (post: Post) => void
   /** Supabase: допис збережено (post зі справжнім id) або не вдалося (null — прибрати оптимістичний) */
@@ -215,7 +218,12 @@ export function Composer({
   compact?: boolean
   communityId?: string | null
   replyTo?: string | null
+  /** цитований допис (репост із коментарем) */
+  quote?: Post | null
+  onCancelQuote?: () => void
   submitLabel?: string
+  /** збільшіть → фокус на поле відповіді (кнопка «Відповісти» на сторінці поста) */
+  focusSignal?: number
 }) {
   const me = useMe()
   const [text, setText] = useState("")
@@ -225,14 +233,14 @@ export function Composer({
   const [mode, setMode] = useState<PostMode>("permanent")
   const [audience, setAudience] = useState<PostAudience>("public")
   const [circleId, setCircleId] = useState<string | null>(null)
-  const [imageMeta, setImageMeta] = useState<{ width: number; height: number } | null>(null)
+  const [imageMeta, setImageMeta] = useState<{ width: number; height: number; video?: boolean; mime?: string } | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(compact)
   const [pending, startTransition] = useTransition()
   const ref = useRef<HTMLTextAreaElement>(null)
   const shellRef = useRef<HTMLDivElement>(null)
-  const topLevel = !replyTo
+  const topLevel = !replyTo && !quote
 
   const dirty = text.length > 0 || !!image || !!code || !!poll
 
@@ -244,6 +252,13 @@ export function Composer({
     }, 0)
     return () => clearTimeout(t)
   }, [])
+
+  // «Відповісти» на цій же сторінці → фокус у поле відповіді
+  useEffect(() => {
+    if (focusSignal <= 0) return
+    ref.current?.focus()
+    ref.current?.scrollIntoView({ block: "center", behavior: "smooth" })
+  }, [focusSignal])
 
   // клік поза порожнім композером → назад у «пігулку»
   useEffect(() => {
@@ -270,6 +285,7 @@ export function Composer({
     setPoll(null)
     setMode("permanent")
     setAudience("public")
+    onCancelQuote?.()
   }
 
   // Supabase Storage: post-media/<uid>/<uuid>.<ext>
@@ -278,20 +294,22 @@ export function Composer({
     e.target.value = ""
     if (!file) return
     setUploading(true)
-    const [res, size] = await Promise.all([uploadImage("post-media", file), imageSize(file)])
+    const video = isVideoFile(file)
+    const [res, size] = await Promise.all([uploadImage("post-media", file), video ? videoSize(file) : imageSize(file)])
     setUploading(false)
     if (!res.ok) {
       toast.error(res.error)
       return
     }
     setImage(res.url)
-    setImageMeta(size)
+    setImageMeta({ ...size, video, mime: file.type })
   }
 
   const submit = () => {
     if (!canPost) return
     const media: PostMedia[] = []
-    if (image) media.push({ type: "image", url: image, width: imageMeta?.width ?? 1200, height: imageMeta?.height ?? 800 })
+    if (image && imageMeta?.video) media.push({ type: "video", url: image, mime: imageMeta.mime, width: imageMeta.width, height: imageMeta.height })
+    else if (image) media.push({ type: "image", url: image, width: imageMeta?.width ?? 1200, height: imageMeta?.height ?? 800 })
     if (code?.code.trim()) media.push({ type: "code", lang: code.lang, code: code.code })
     const options = poll?.map((o) => o.trim()).filter(Boolean) ?? []
     if (poll) media.push({ type: "poll", options })
@@ -310,6 +328,7 @@ export function Composer({
       replies: 0,
       reposts: 0,
       reposted: false,
+      quote,
       replyTo,
       mode: postMode,
       expiresAt: postMode === "glow" ? computeExpiry(createdAt, 0) : null,
@@ -326,6 +345,7 @@ export function Composer({
         media,
         communityId,
         replyTo,
+        repostOf: quote?.id ?? null,
         mode: optimisticPost.mode,
         audience: optimisticPost.audience,
         circleId: optimisticPost.audience === "circle" ? postCircleId : null,
@@ -344,7 +364,10 @@ export function Composer({
                 : undefined,
           }
         )
-      else toast.error(res.error)
+      else {
+        toast.error(res.error)
+        if (res.needsOnboarding) window.location.href = "/onboarding"
+      }
     })
   }
 
@@ -409,8 +432,12 @@ export function Composer({
                     exit={{ opacity: 0, height: 0 }}
                     className="relative mt-2 overflow-hidden rounded-xl border"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- прев'ю локального файлу */}
-                    <img src={image} alt="" className="max-h-72 w-full object-cover" />
+                    {imageMeta?.video ? (
+                      <video src={image} muted playsInline controls preload="metadata" className="max-h-72 w-full bg-black object-contain" />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element -- прев'ю локального файлу
+                      <img src={image} alt="" className="max-h-72 w-full object-cover" />
+                    )}
                     <button
                       onClick={() => setImage(null)}
                       aria-label="Прибрати зображення"
@@ -484,6 +511,27 @@ export function Composer({
                 )}
               </AnimatePresence>
 
+              {quote && (
+                <div className="mt-2 rounded-xl border bg-subtle/50 p-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <UserAvatar user={quote.author} size="md" className="size-5" />
+                    <span className="font-medium text-foreground">{quote.author.name}</span>
+                    <span className="truncate">@{quote.author.username}</span>
+                    {onCancelQuote && (
+                      <button
+                        type="button"
+                        aria-label="Прибрати цитату"
+                        onClick={onCancelQuote}
+                        className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="mt-1.5 line-clamp-3 text-sm leading-snug text-foreground/80">{quote.content || "(медіа-допис)"}</p>
+                </div>
+              )}
+
               <AnimatePresence initial={false}>
                 {showTools && (
                   <motion.div
@@ -505,7 +553,7 @@ export function Composer({
                             <ToolButton label={uploading ? "Завантаження…" : "Зображення"} active={!!image} onClick={() => fileRef.current?.click()}>
                               {uploading ? <Loader2 className="animate-spin" /> : <ImageIcon />}
                             </ToolButton>
-                            <input ref={fileRef} type="file" accept={IMAGE_ACCEPT} hidden onChange={onPickImage} />
+                            <input ref={fileRef} type="file" accept={POST_MEDIA_ACCEPT} hidden onChange={onPickImage} />
                           </>
                         )}
                         <ToolButton label="Блок коду" active={!!code} onClick={() => setCode(code ? null : { lang: "tsx", code: "" })}>

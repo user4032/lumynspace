@@ -8,7 +8,7 @@ import { isActive, navItems, withBadges } from "./nav-items"
 import { useUnreadCounts } from "@/hooks/useUnreadCounts"
 
 const mobileItems = navItems.filter((i) =>
-  ["/", "/explore", "/communities", "/messages", "/notifications"].includes(i.href)
+  ["/", "/explore", "/clips", "/messages", "/notifications"].includes(i.href)
 )
 
 export function MobileNav() {

@@ -39,7 +39,15 @@ async function PostContent({ params }: { params: PageProps<"/post/[id]">["params
   const { id } = await params
   const data = await loadPost(id)
   if (!data) notFound()
-  return <PostDetail post={data.post} replies={data.replies} />
+  // гість бачить сам пост (RLS віддає лише публічне), але без композера й дій
+  let guest = false
+  if (!isMockMode) {
+    const { getSupabaseServerClient } = await import("@/lib/supabase/server")
+    const supabase = await getSupabaseServerClient()
+    const { data: claims } = await supabase!.auth.getClaims()
+    guest = !claims?.claims?.sub
+  }
+  return <PostDetail post={data.post} replies={data.replies} guest={guest} />
 }
 
 export default function PostPage({ params }: PageProps<"/post/[id]">) {

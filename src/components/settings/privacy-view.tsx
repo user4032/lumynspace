@@ -6,6 +6,9 @@ import { toast } from "sonner"
 import { Check, Copy, Lock, Plus, ShieldAlert, Ticket, VolumeX } from "lucide-react"
 import type { DmPolicy, User } from "@/types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { TwoFactor } from "@/components/settings/two-factor"
+import { XImport } from "@/components/settings/x-import"
+import { InviteStats } from "@/components/settings/invite-stats"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { UserAvatar } from "@/components/user-avatar"
@@ -210,6 +213,7 @@ export function PrivacyView() {
         </CardContent>
       </Card>
 
+      <InviteStats />
       <PeopleList
         title="Заблоковані"
         empty="Нікого не заблоковано."
@@ -233,6 +237,8 @@ export function PrivacyView() {
           </Button>
         )}
       />
+      <TwoFactor />
+      <XImport />
     </>
   )
 }
