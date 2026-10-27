@@ -205,7 +205,9 @@ function Clip({ post, index }: { post: Post; index: number }) {
                 </div>
               )}
               {!loadingReplies && replies.length === 0 && (
-                <p className="px-4 pb-4 text-sm text-muted-foreground">Поки немає відповідей</p>
+                <div style={{ minHeight: "200px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <p className="px-4 text-center text-sm text-muted-foreground">Поки немає відповідей</p>
+                </div>
               )}
               {replies.map((r, i) => (
                 <PostCard key={r.clientKey ?? r.id} post={r} index={i} />
