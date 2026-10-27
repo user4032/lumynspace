@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2, RotateCcw, ZoomIn, ZoomOut } from "lucide-react"
 import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -26,7 +27,7 @@ const SPEC = {
     action: "Обрізати аватар",
     hint: "Перетягніть фото, щоб вибрати кадр. У профілі видно круглу частину.",
     aspect: "aspect-square",
-    frame: "mx-auto w-full max-w-[300px] rounded-xl",
+    frame: "mx-auto w-full max-w-[280px] overflow-hidden rounded-2xl",
   },
   cover: {
     width: 1600,
@@ -40,7 +41,6 @@ const SPEC = {
 
 const MIN_ZOOM = 1
 const MAX_ZOOM = 4
-
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v))
 
 /**
@@ -60,63 +60,55 @@ export function ImageCropDialog({
   onConfirm: (file: File) => Promise<boolean>
 }) {
   const spec = SPEC[kind]
-  const [src, setSrc] = useState<string | null>(null)
+  const src = useMemo(() => URL.createObjectURL(file), [file])
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null)
+  // 0×0 = ще не виміряно. Реальний розмір приходить з ResizeObserver.
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
+  // DialogContent живе в порталі й монтується після першого коміту,
+  // тому елемент беремо через callback-ref, а не через useRef + effect([]).
+  const [viewportEl, setViewportEl] = useState<HTMLDivElement | null>(null)
   const [zoom, setZoom] = useState(MIN_ZOOM)
   const [offset, setOffset] = useState<CropOffset>({ x: 0, y: 0 })
   const [saving, setSaving] = useState(false)
   const [failed, setFailed] = useState(false)
-  const imgRef = useRef<HTMLImageElement>(null)
-  const viewportRef = useRef<HTMLDivElement>(null)
+  const imgRef = useRef<HTMLImageElement | null>(null)
   const drag = useRef<{ id: number; x: number; y: number; ox: number; oy: number } | null>(null)
 
-  // FileReader (а не object URL) — безпечно для StrictMode: URL не ревокається під час повторного маунту
   useEffect(() => {
-    let cancelled = false
-    const reader = new FileReader()
-    reader.onload = () => {
-      if (!cancelled && typeof reader.result === "string") setSrc(reader.result)
-    }
-    reader.onerror = () => {
-      if (!cancelled) setFailed(true)
-    }
-    reader.readAsDataURL(file)
     return () => {
-      cancelled = true
-      if (reader.readyState === FileReader.LOADING) reader.abort()
+      URL.revokeObjectURL(src)
     }
-  }, [file])
+  }, [src])
 
-  const DEFAULT_VIEWPORT = { width: 200, height: 200 }
+  // Розмір береться з layout-розміру (contentRect), а не з getBoundingClientRect:
+  // останній враховує transform (анімація zoom-in діалогу) і дає завужений розмір.
   useEffect(() => {
-    const el = viewportRef.current
-    if (!el) return
-    setViewport(DEFAULT_VIEWPORT)
-    const ro = new ResizeObserver(([entry]) => {
-      const rect = entry.contentRect
-      setViewport({ width: rect.width, height: rect.height })
+    if (!viewportEl) return
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect
+      if (!rect || rect.width <= 0 || rect.height <= 0) return
+      setViewport((prev) =>
+        prev.width === rect.width && prev.height === rect.height
+          ? prev
+          : { width: rect.width, height: rect.height },
+      )
     })
-    ro.observe(el)
+    ro.observe(viewportEl)
     return () => ro.disconnect()
+  }, [viewportEl])
+
+  // Маленький файл часто вже complete до підписки на onLoad.
+  const setImgEl = useCallback((el: HTMLImageElement | null) => {
+    imgRef.current = el
+    if (el && el.complete && el.naturalWidth > 0 && el.naturalHeight > 0) {
+      setNatural((prev) => prev ?? { width: el.naturalWidth, height: el.naturalHeight })
+    }
   }, [])
 
-  const ready = Boolean(natural && viewport.width > 0)
-  const scale = ready && natural ? coverScale(natural.width, natural.height, viewport.width, viewport.height) * zoom : 1
-  const area =
-    ready && natural ? cropArea({ imageWidth: natural.width, imageHeight: natural.height, viewport, zoom, offset }) : null
-
-  // зсув, уже обрізаний по краях — прев'ю показує рівно те, що піде у файл
-  const display =
-    area && natural
-      ? {
-          x: (natural.width / 2 - area.sw / 2 - area.sx) * scale,
-          y: (natural.height / 2 - area.sh / 2 - area.sy) * scale,
-        }
-      : { x: 0, y: 0 }
+  const ready = Boolean(natural && viewport.width > 0 && viewport.height > 0)
 
   const limits = (z: number) => {
-    if (!natural || !viewport.width) return { x: 0, y: 0 }
+    if (!natural || !viewport.width || !viewport.height) return { x: 0, y: 0 }
     const s = coverScale(natural.width, natural.height, viewport.width, viewport.height) * Math.max(MIN_ZOOM, z)
     const sw = Math.min(natural.width, viewport.width / s)
     const sh = Math.min(natural.height, viewport.height / s)
@@ -126,11 +118,35 @@ export function ImageCropDialog({
     }
   }
 
+  // Зсув завжди тримаємо в межах, навіть якщо вьюпорт змінився після перетягування.
+  const lim = limits(zoom)
+  const effOffset: CropOffset = {
+    x: clamp(offset.x, -lim.x, lim.x),
+    y: clamp(offset.y, -lim.y, lim.y),
+  }
+
+  const scale =
+    ready && natural
+      ? coverScale(natural.width, natural.height, viewport.width, viewport.height) * Math.max(MIN_ZOOM, zoom)
+      : 1
+  const area =
+    ready && natural
+      ? cropArea({ imageWidth: natural.width, imageHeight: natural.height, viewport, zoom, offset: effOffset })
+      : null
+
+  const display =
+    area && natural
+      ? {
+          x: (natural.width / 2 - area.sw / 2 - area.sx) * scale,
+          y: (natural.height / 2 - area.sh / 2 - area.sy) * scale,
+        }
+      : { x: 0, y: 0 }
+
   const changeZoom = (next: number) => {
     const z = clamp(next, MIN_ZOOM, MAX_ZOOM)
-    const lim = limits(z)
+    const l = limits(z)
     setZoom(z)
-    setOffset((o) => ({ x: clamp(o.x, -lim.x, lim.x), y: clamp(o.y, -lim.y, lim.y) }))
+    setOffset(() => ({ x: clamp(effOffset.x, -l.x, l.x), y: clamp(effOffset.y, -l.y, l.y) }))
   }
 
   const reset = () => {
@@ -139,18 +155,18 @@ export function ImageCropDialog({
   }
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!natural) return
+    if (!ready) return
     e.currentTarget.setPointerCapture(e.pointerId)
-    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y }
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: effOffset.x, oy: effOffset.y }
   }
 
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = drag.current
     if (!d || d.id !== e.pointerId) return
-    const lim = limits(zoom)
+    const l = limits(zoom)
     setOffset({
-      x: clamp(d.ox + e.clientX - d.x, -lim.x, lim.x),
-      y: clamp(d.oy + e.clientY - d.y, -lim.y, lim.y),
+      x: clamp(d.ox + e.clientX - d.x, -l.x, l.x),
+      y: clamp(d.oy + e.clientY - d.y, -l.y, l.y),
     })
   }
 
@@ -182,28 +198,30 @@ export function ImageCropDialog({
         </DialogHeader>
 
         <div
-          ref={viewportRef}
+          ref={setViewportEl}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           className={cn(
-            "relative touch-none overflow-hidden bg-black select-none",
+            "relative touch-none overflow-hidden bg-[#000000] select-none",
             spec.aspect,
             spec.frame,
             ready ? "cursor-grab active:cursor-grabbing" : "cursor-wait",
           )}
         >
           {src && (
-            // eslint-disable-next-line @next/next/no-img-element -- локальний data: URL для прев'ю
+            // eslint-disable-next-line @next/next/no-img-element -- локальний blob: URL для прев'ю
             <img
-              ref={imgRef}
+              ref={setImgEl}
               src={src}
               alt=""
               draggable={false}
               onLoad={(e) => {
                 const el = e.currentTarget
-                if (el.naturalWidth && el.naturalHeight) setNatural({ width: el.naturalWidth, height: el.naturalHeight })
+                if (el.naturalWidth && el.naturalHeight) {
+                  setNatural({ width: el.naturalWidth, height: el.naturalHeight })
+                }
               }}
               onError={() => setFailed(true)}
               className={cn("pointer-events-none absolute max-w-none", ready ? "opacity-100" : "opacity-0")}
@@ -224,29 +242,32 @@ export function ImageCropDialog({
             />
           )}
 
-          {/* затемнення поза кругом — показує, як аватар виглядатиме в профілі */}
+          {/* Discord: коло = вписане коло квадрата-вьюпорта; затемнені лише 4 кути */}
           {kind === "avatar" && (
-            <span
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background: "radial-gradient(circle closest-side, transparent 98.5%, rgba(0,0,0,0.6) 99%)",
-              }}
-            />
+            <>
+              <span
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    "radial-gradient(circle closest-side at center, transparent 99%, rgba(0,0,0,0.5) 100%)",
+                }}
+              />
+              {/* border (а не ring/box-shadow): лишається всередині квадрата й не обрізається overflow-hidden */}
+              <span className="pointer-events-none absolute inset-0 rounded-full border-[3px] border-white" />
+            </>
           )}
+
           {kind === "cover" && (
-            <span className="pointer-events-none absolute inset-0 opacity-50">
-              <span className="absolute inset-y-0 left-1/3 w-px bg-white/40" />
-              <span className="absolute inset-y-0 left-2/3 w-px bg-white/40" />
-              <span className="absolute inset-x-0 top-1/3 h-px bg-white/40" />
-              <span className="absolute inset-x-0 top-2/3 h-px bg-white/40" />
-            </span>
+            <>
+              <span className="pointer-events-none absolute inset-0 opacity-50">
+                <span className="absolute inset-y-0 left-1/3 w-px bg-white/40" />
+                <span className="absolute inset-y-0 left-2/3 w-px bg-white/40" />
+                <span className="absolute inset-x-0 top-1/3 h-px bg-white/40" />
+                <span className="absolute inset-x-0 top-2/3 h-px bg-white/40" />
+              </span>
+              <span className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/25" />
+            </>
           )}
-          <span
-            className={cn(
-              "pointer-events-none absolute inset-0 ring-1 ring-inset",
-              kind === "avatar" ? "rounded-full ring-white/40" : "rounded-xl ring-white/25",
-            )}
-          />
 
           {!ready && (
             <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs text-white/70">

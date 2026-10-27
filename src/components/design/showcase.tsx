@@ -170,8 +170,8 @@ export function Showcase({ mode }: { mode: "light" | "dark" }) {
         <Section title="Вкладки">
           <Tabs defaultValue="for-you">
             <TabsList>
-              <TabsTrigger value="for-you">Для тебе</TabsTrigger>
-              <TabsTrigger value="following">Підписки</TabsTrigger>
+              <TabsTrigger value="for-you">Потік</TabsTrigger>
+              <TabsTrigger value="following">Коло</TabsTrigger>
               <TabsTrigger value="media">Медіа</TabsTrigger>
             </TabsList>
             <TabsContent value="for-you" className="text-muted-foreground">Рекомендовані дописи.</TabsContent>

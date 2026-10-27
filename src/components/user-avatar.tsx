@@ -83,9 +83,13 @@ export function UserAvatar({
   // час перевіряємо лише після монтування: Date.now() у пререндері заборонений
   const [nowMs, setNowMs] = useState(0)
   useEffect(() => {
-    setNowMs(Date.now())
-    const t = setInterval(() => setNowMs(Date.now()), 60_000)
-    return () => clearInterval(t)
+    const sync = () => setNowMs(Date.now())
+    const first = setTimeout(sync, 0)
+    const t = setInterval(sync, 60_000)
+    return () => {
+      clearTimeout(first)
+      clearInterval(t)
+    }
   }, [])
   // рамка: явний проп > поле користувача (автори постів, профілі, чат)
   const effFrame = frame ?? user.frame ?? null

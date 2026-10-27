@@ -3,21 +3,23 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
-import { BellOff, Ban, Flag, LogOut, Users2, X } from "lucide-react"
+import { BellOff, Ban, Flag, LogOut, UserMinus, UserPlus, Users2, X } from "lucide-react"
 import { toast } from "sonner"
 import type { Conversation, Message } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { StatusIcon, isStatusIconKey } from "@/components/status-icon"
 import { ReportDialog } from "@/components/moderation/report-dialog"
 import { useModeration } from "@/components/moderation/use-moderation"
-import { leaveGroup } from "@/lib/actions/social"
+import { leaveGroup, removeGroupMember } from "@/lib/actions/social"
 import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { formatBytes, useSignedUrls } from "@/lib/chat-files"
 import { useNow } from "@/hooks/useNow"
 import { splitLegacy } from "./message-body"
+import { AddGroupMembersDialog } from "@/components/chat/add-group-members-dialog"
 
 /** Панель «Інформація» в чаті: профіль, спільні читачі, медіа й файли, mute, блок/скарга. */
 export function ChatInfoPanel({
@@ -42,6 +44,64 @@ export function ChatInfoPanel({
   const [mutual, setMutual] = useState<number | null>(null)
   const [muted, setMuted] = useState<boolean | null>(null)
   const saved = /^[0-9a-f-]{36}$/i.test(convId)
+  const isGroup = Boolean(conversation.group)
+  // керувати учасниками групи може лише її творець
+  const [isCreator, setIsCreator] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [kick, setKick] = useState<{ id: string; name: string } | null>(null)
+  const [kicking, startKick] = useTransition()
+  const router = useRouter()
+  const [me, setMe] = useState<{ username: string; name: string; avatarUrl: string | null } | null>(null)
+
+  useEffect(() => {
+  if (!isGroup || !meId) return
+  const supabase = getSupabaseBrowserClient()
+  if (!supabase) return
+  let cancelled = false
+  void supabase
+    .from("profiles")
+    .select("username, display_name, avatar_url")
+    .eq("id", meId)
+    .maybeSingle()
+    .then(({ data }) => {
+      if (cancelled || !data) return
+      setMe({ username: data.username, name: data.display_name || data.username, avatarUrl: data.avatar_url })
+    })
+  return () => {
+    cancelled = true
+  }
+}, [isGroup, meId])
+
+
+  useEffect(() => {
+    if (!isGroup || !saved || !meId) return
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) return
+    let cancelled = false
+    void supabase
+      .from("conversations")
+      .select("created_by")
+      .eq("id", convId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setIsCreator((data as { created_by?: string } | null)?.created_by === meId)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isGroup, saved, convId, meId])
+
+  const confirmKick = () => {
+    if (!kick) return
+    startKick(async () => {
+      const res = await removeGroupMember(convId, kick.id)
+      if (res.ok) {
+        toast.success(`${kick.name} видалено з групи`)
+        setKick(null)
+        router.refresh()
+      } else toast.error(res.error)
+    })
+  }
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient()
@@ -108,17 +168,36 @@ export function ChatInfoPanel({
           <p className="text-sm text-muted-foreground">{conversation.group.members.length + 1} учасників</p>
         </div>
         <section className="mt-6 border-t px-2 py-3">
-          <h3 className="px-2 text-xs font-medium tracking-wider text-muted-foreground uppercase">Учасники</h3>
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-xs font-medium tracking-wider text-muted-foreground uppercase">Учасники</h3>
+            {isCreator && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAddOpen(true)}>
+                <UserPlus /> Додати
+              </Button>
+            )}
+          </div>
           <ul className="mt-2 space-y-0.5">
-            <li className="px-2">
-              <span className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-sm">
-                <UserAvatar user={{ username: meId, name: "Ви" }} size="md" className="size-8" />
-                <span className="font-medium">Ви</span>
-              </span>
-            </li>
+            <li>
+  {me ? (
+    <Link href={`/${me.username}`} className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-sm transition-colors hover:bg-muted">
+      <UserAvatar user={{ username: me.username, name: me.name, avatarUrl: me.avatarUrl }} size="md" className="size-8" />
+      <span className="min-w-0 flex-1 truncate">
+        <span className="block truncate font-medium">
+          Ви <span className="font-normal text-muted-foreground">({me.name})</span>
+        </span>
+        <span className="block truncate text-xs text-muted-foreground">@{me.username}</span>
+      </span>
+    </Link>
+  ) : (
+    <span className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-sm">
+      <UserAvatar user={{ username: meId, name: "Ви" }} size="md" className="size-8" />
+      <span className="font-medium">Ви</span>
+    </span>
+  )}
+</li>
             {conversation.group.members.map((m) => (
-              <li key={m.id}>
-                <Link href={`/${m.username}`} className="flex items-center gap-2.5 rounded-md px-1 py-1.5 text-sm transition-colors hover:bg-muted">
+              <li key={m.id} className="flex items-center gap-1">
+                <Link href={`/${m.username}`} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1 py-1.5 text-sm transition-colors hover:bg-muted">
                   <UserAvatar user={m} size="md" className="size-8" />
                   <span className="min-w-0 flex-1 truncate">
                     <span className="flex items-center gap-1 font-medium">
@@ -127,6 +206,18 @@ export function ChatInfoPanel({
                     <span className="block truncate text-xs text-muted-foreground">@{m.username}</span>
                   </span>
                 </Link>
+                {isCreator && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Видалити ${m.name} з групи`}
+                    title="Видалити з групи"
+                    onClick={() => setKick({ id: m.id, name: m.name })}
+                  >
+                    <UserMinus />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
@@ -142,6 +233,28 @@ export function ChatInfoPanel({
           )}
           <LeaveGroupButton convId={convId} />
         </section>
+        <AddGroupMembersDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          convId={convId}
+          existingIds={[meId, ...conversation.group.members.map((m) => m.id)]}
+        />
+        <Dialog open={Boolean(kick)} onOpenChange={(v) => !v && !kicking && setKick(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Видалити з групи?</DialogTitle>
+              <DialogDescription>{kick?.name} втратить доступ до цієї розмови.</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setKick(null)} disabled={kicking}>
+                Скасувати
+              </Button>
+              <Button variant="destructive" onClick={confirmKick} disabled={kicking}>
+                Видалити
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </aside>
     )
 

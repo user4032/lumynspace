@@ -21,6 +21,7 @@ import { createPost } from "@/lib/actions/posts"
 import { useMe, useViewer } from "@/lib/viewer-store"
 import { computeExpiry, GLOW } from "@/lib/glow"
 import { EmojiPicker } from "@/components/ui/emoji-picker"
+import { StoryEntry } from "@/components/stories/story-entry"
 import { nowISO } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { isMockMode } from "@/lib/env"
@@ -210,6 +211,7 @@ export function Composer({
   onCancelQuote,
   submitLabel = "Опублікувати",
   focusSignal = 0,
+  surface = "flat",
 }: {
   onPublish?: (post: Post) => void
   /** Supabase: допис збережено (post зі справжнім id) або не вдалося (null — прибрати оптимістичний) */
@@ -224,6 +226,8 @@ export function Composer({
   submitLabel?: string
   /** збільшіть → фокус на поле відповіді (кнопка «Відповісти» на сторінці поста) */
   focusSignal?: number
+  /** card — окрема картка в стрічці; flat — смуга в потоці (сторінка поста, профіль) */
+  surface?: "flat" | "card"
 }) {
   const me = useMe()
   const [text, setText] = useState("")
@@ -288,11 +292,12 @@ export function Composer({
     onCancelQuote?.()
   }
 
-  // Supabase Storage: post-media/<uid>/<uuid>.<ext>
-  const onPickImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ""
+  const handleFile = async (file: File) => {
     if (!file) return
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("Файл завеликий. Максимум 25 МБ")
+      return
+    }
     setUploading(true)
     const video = isVideoFile(file)
     const [res, size] = await Promise.all([uploadImage("post-media", file), video ? videoSize(file) : imageSize(file)])
@@ -303,7 +308,37 @@ export function Composer({
     }
     setImage(res.url)
     setImageMeta({ ...size, video, mime: file.type })
+    if (ref.current) ref.current.style.height = "auto"
   }
+
+  // Supabase Storage: post-media/<uid>/<uuid>.<ext>
+  const onPickImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    await handleFile(file)
+  }
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (compact && !open && !dirty) return
+      const items = e.clipboardData?.items
+      if (!items) return
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.kind === "file") {
+          const file = item.getAsFile()
+          if (file) {
+            e.preventDefault()
+            void handleFile(file)
+            break
+          }
+        }
+      }
+    }
+    window.addEventListener("paste", onPaste)
+    return () => window.removeEventListener("paste", onPaste)
+  }, [compact, open, dirty])
 
   const submit = () => {
     if (!canPost) return
@@ -372,7 +407,12 @@ export function Composer({
   }
 
   return (
-    <div className={cn("border-b px-4", compact ? "py-3" : "py-3.5")}>
+    <div
+      className={cn(
+        compact ? "py-3" : "py-3.5",
+        surface === "card" ? "mx-3 mt-1 mb-2.5 rounded-2xl bg-card px-4" : "border-b px-4",
+      )}
+    >
       <motion.div
         ref={shellRef}
         layout
@@ -386,22 +426,24 @@ export function Composer({
         )}
       >
         {!compact && !open ? (
-          <motion.button
-            layout="position"
-            type="button"
-            onClick={() => {
-              setOpen(true)
-              requestAnimationFrame(() => ref.current?.focus())
-            }}
-            className="flex w-full items-center gap-3 py-1.5 pr-2 pl-1.5 text-left"
-          >
-            <UserAvatar user={me} size="md" className="size-8" />
-            <span className="flex-1 text-[15px] text-muted-foreground">{placeholder}</span>
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
-              <span className="inline-flex size-8 items-center justify-center rounded-full"><ImageIcon className="size-4" /></span>
-              <span className="inline-flex size-8 items-center justify-center rounded-full text-glow"><SparkIcon className="size-4" /></span>
-            </span>
-          </motion.button>
+          <motion.div layout="position" className="flex w-full items-center gap-3 py-1.5 pr-2 pl-1.5">
+            {/* своя історія — замість окремого ряду над стрічкою */}
+            {isMockMode ? <UserAvatar user={me} size="md" className="size-8" /> : <StoryEntry />}
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(true)
+                requestAnimationFrame(() => ref.current?.focus())
+              }}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            >
+              <span className="flex-1 truncate text-[15px] text-muted-foreground">{placeholder}</span>
+              <span className="inline-flex items-center gap-1 text-muted-foreground">
+                <span className="inline-flex size-8 items-center justify-center rounded-full"><ImageIcon className="size-4" /></span>
+                <span className="inline-flex size-8 items-center justify-center rounded-full text-glow"><SparkIcon className="size-4" /></span>
+              </span>
+            </button>
+          </motion.div>
         ) : (
           <motion.div layout="position" className={cn("flex gap-3", !compact && "p-3")}>
             <UserAvatar user={me} size={compact ? "lg" : "md"} className={cn(!compact && "mt-0.5")} />

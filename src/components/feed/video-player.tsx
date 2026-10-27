@@ -2,17 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { Download, Loader2, Maximize2, Minimize2, Pause, Play, Volume2, VolumeX } from "lucide-react"
+import { Download, Loader2, Maximize2, Minimize2, Pause, Play, Volume1, Volume2, VolumeX } from "lucide-react"
 import type { VideoMedia } from "@/types/database"
 import { cn } from "@/lib/utils"
 
 const fmt = (s: number) => (Number.isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00")
 
-/** Плеєр Lumyn: перетягувальна шкала з буфером, клавіатура, спінер, фулскрін. */
+/** Плеєр Lumyn: плаваюча панель керування, перемотування, гучність, клавіатура, фулскрін. */
 export function VideoPlayer({ media }: { media: VideoMedia }) {
   const ref = useRef<HTMLVideoElement>(null)
   const [playing, setPlaying] = useState(false)
   const [muted, setMuted] = useState(true)
+  const [volume, setVolume] = useState(1)
   const [time, setTime] = useState(0)
   const [dur, setDur] = useState(0)
   const [buffered, setBuffered] = useState(0)
@@ -47,11 +48,46 @@ export function VideoPlayer({ media }: { media: VideoMedia }) {
     }
   }, [])
 
+  // повноекранний режим могли закрити клавішею Esc — тримаємо стан синхронним
+  useEffect(() => {
+    const sync = () => setFull(Boolean(document.fullscreenElement))
+    document.addEventListener("fullscreenchange", sync)
+    return () => document.removeEventListener("fullscreenchange", sync)
+  }, [])
+
+  const applyVolume = (next: number) => {
+    const v = ref.current
+    const safe = Math.min(1, Math.max(0, Math.round(next * 100) / 100))
+    const silent = safe === 0
+    setVolume(safe)
+    setMuted(silent)
+    if (v) {
+      v.volume = safe
+      v.muted = silent
+    }
+  }
+
+  const toggleMute = () => {
+    const v = ref.current
+    if (!v) return
+    if (muted || volume === 0) {
+      const next = volume > 0 ? volume : 0.6
+      setVolume(next)
+      setMuted(false)
+      v.volume = next
+      v.muted = false
+    } else {
+      setMuted(true)
+      v.muted = true
+    }
+  }
+
   const toggle = () => {
     const v = ref.current
     if (!v) return
     userStarted.current = true
     if (v.paused) {
+      v.volume = volume
       v.muted = muted
       void v.play()
     } else v.pause()
@@ -100,17 +136,24 @@ export function VideoPlayer({ media }: { media: VideoMedia }) {
         toggle()
         break
       case "ArrowRight":
+        e.preventDefault()
         v.currentTime = Math.min(v.currentTime + 5, dur)
         break
       case "ArrowLeft":
+        e.preventDefault()
         v.currentTime = Math.max(v.currentTime - 5, 0)
         break
-      case "m": {
-        const next = !muted
-        setMuted(next)
-        v.muted = next
+      case "ArrowUp":
+        e.preventDefault()
+        applyVolume(volume + 0.1)
         break
-      }
+      case "ArrowDown":
+        e.preventDefault()
+        applyVolume(volume - 0.1)
+        break
+      case "m":
+        toggleMute()
+        break
       case "f":
         void toggleFull()
         break
@@ -126,9 +169,11 @@ export function VideoPlayer({ media }: { media: VideoMedia }) {
     } else v.pause()
   }
 
+  const VolumeIcon = muted || volume === 0 ? VolumeX : volume < 0.5 ? Volume1 : Volume2
+
   return (
     <div
-      className="group/video relative overflow-hidden rounded-xl border bg-black outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group/video relative overflow-hidden rounded-2xl border border-white/10 bg-black outline-none focus-visible:ring-2 focus-visible:ring-ring"
       tabIndex={0}
       onKeyDown={onKey}
       onMouseEnter={() => hover(true)}
@@ -158,7 +203,7 @@ export function VideoPlayer({ media }: { media: VideoMedia }) {
         onWaiting={() => setWaiting(true)}
         onPlaying={() => setWaiting(false)}
         onCanPlay={() => setWaiting(false)}
-        className="max-h-[520px] w-full cursor-pointer object-contain"
+        className="max-h-[560px] w-full cursor-pointer object-contain"
       />
 
       {/* буферизація */}
@@ -171,21 +216,19 @@ export function VideoPlayer({ media }: { media: VideoMedia }) {
           type="button"
           onClick={toggle}
           aria-label="Відтворити"
-          className="absolute top-1/2 left-1/2 inline-flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-lg backdrop-blur transition-transform hover:scale-105"
+          className="absolute top-1/2 left-1/2 inline-flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-xl backdrop-blur transition-transform hover:scale-105"
         >
-          <Play className="ml-0.5 size-6 fill-current" />
+          <Play className="ml-0.5 size-5 fill-current" />
         </button>
       )}
 
+      {/* плаваюча панель керування */}
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 flex items-center gap-2 bg-gradient-to-t from-black/75 to-transparent px-3 pt-6 pb-2 text-white transition-opacity",
+          "absolute inset-x-2 bottom-2 rounded-xl border border-white/10 bg-black/65 p-2 text-white shadow-[0_8px_24px_rgb(0_0_0/0.45)] backdrop-blur-md transition-opacity",
           playing ? "opacity-0 group-hover/video:opacity-100 focus-within:opacity-100" : "opacity-100",
         )}
       >
-        <button type="button" onClick={toggle} aria-label={playing ? "Пауза" : "Відтворити"} className="rounded p-1 hover:bg-white/15">
-          {playing ? <Pause className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
-        </button>
         <div
           ref={barRef}
           role="slider"
@@ -195,41 +238,78 @@ export function VideoPlayer({ media }: { media: VideoMedia }) {
           aria-valuenow={Math.round(time)}
           tabIndex={-1}
           onPointerDown={onBarDown}
-          className="relative h-4 flex-1 cursor-pointer touch-none"
+          className="group/bar relative h-3 cursor-pointer touch-none"
         >
-          <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 overflow-hidden rounded-full bg-white/25">
-            <div className="h-full rounded-full bg-white/35" style={{ width: dur ? `${(buffered / dur) * 100}%` : 0 }} />
+          <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-white/20 transition-[height] group-hover/bar:h-1.5">
+            <div className="h-full rounded-full bg-white/30" style={{ width: dur ? `${(buffered / dur) * 100}%` : 0 }} />
           </div>
           <div
-            className="absolute top-1/2 left-0 h-1.5 -translate-y-1/2 rounded-full bg-white"
+            className="absolute top-1/2 left-0 h-1 -translate-y-1/2 rounded-full bg-white transition-[height] group-hover/bar:h-1.5"
             style={{ width: dur ? `${(time / dur) * 100}%` : 0 }}
           />
           <div
-            className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow"
+            className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white opacity-0 shadow transition-opacity group-hover/bar:opacity-100"
             style={{ left: dur ? `${(time / dur) * 100}%` : 0 }}
           />
         </div>
-        <span className="shrink-0 font-mono text-[11px] tabular-nums">
-          {fmt(time)} / {fmt(dur)}
-        </span>
-        <button
-          type="button"
-          onClick={() => {
-            const next = !muted
-            setMuted(next)
-            if (ref.current) ref.current.muted = next
-          }}
-          aria-label={muted ? "Увімкнути звук" : "Вимкнути звук"}
-          className="rounded p-1 hover:bg-white/15"
-        >
-          {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-        </button>
-        <a href={`${media.url}?download=`} download aria-label="Завантажити відео" className="rounded p-1 hover:bg-white/15">
-          <Download className="size-4" />
-        </a>
-        <button type="button" onClick={() => void toggleFull()} aria-label="На весь екран" className="rounded p-1 hover:bg-white/15">
-          {full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-        </button>
+
+        <div className="mt-1.5 flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={playing ? "Пауза" : "Відтворити"}
+            className="grid size-7 place-items-center rounded-md transition-colors hover:bg-white/15"
+          >
+            {playing ? <Pause className="size-4 fill-current" /> : <Play className="size-4 fill-current" />}
+          </button>
+          <span className="ml-1 font-mono text-[11px] text-white/70 tabular-nums">
+            {fmt(time)} <span className="text-white/30">/</span> {fmt(dur)}
+          </span>
+
+          <span className="flex-1" />
+
+          {/* гучність: повзунок розкривається при наведенні, на мобільному видно одразу */}
+          <div className="group/vol flex items-center">
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={muted ? "Увімкнути звук" : "Вимкнути звук"}
+              className="grid size-7 place-items-center rounded-md transition-colors hover:bg-white/15"
+            >
+              <VolumeIcon className="size-4" />
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={Math.round((muted ? 0 : volume) * 100)}
+              onChange={(e) => applyVolume(Number(e.target.value) / 100)}
+              aria-label="Гучність"
+              style={{
+                background: `linear-gradient(to right, rgb(255 255 255 / 0.95) ${(muted ? 0 : volume) * 100}%, rgb(255 255 255 / 0.2) ${(muted ? 0 : volume) * 100}%)`,
+              }}
+              className="h-1 w-0 cursor-pointer appearance-none rounded-full opacity-0 outline-none transition-[width,opacity] duration-200 group-hover/vol:w-16 group-hover/vol:opacity-100 focus:w-16 focus:opacity-100 max-sm:w-14 max-sm:opacity-100 [&::-moz-range-thumb]:size-2.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-track]:bg-transparent [&::-webkit-slider-thumb]:size-2.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            />
+          </div>
+
+          <a
+            href={`${media.url}?download=`}
+            download
+            aria-label="Завантажити відео"
+            className="grid size-7 place-items-center rounded-md transition-colors hover:bg-white/15"
+          >
+            <Download className="size-4" />
+          </a>
+          <button
+            type="button"
+            onClick={() => void toggleFull()}
+            aria-label="На весь екран"
+            className="grid size-7 place-items-center rounded-md transition-colors hover:bg-white/15"
+          >
+            {full ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          </button>
+        </div>
       </div>
     </div>
   )

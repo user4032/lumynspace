@@ -30,7 +30,7 @@ import { StatusIcon, isStatusIconKey } from "@/components/status-icon"
 import { Composer } from "@/components/feed/composer"
 import { PostCard } from "@/components/feed/post-card"
 import { PhotoLightbox } from "@/components/feed/photo-lightbox"
-import { formatCount, formatJoined, plural } from "@/lib/format"
+import { formatCount, formatFullDate, formatJoined, plural } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { accentVars, DEFAULT_ACCENT } from "@/lib/accent"
 import { remainingLabel } from "@/lib/glow"
@@ -287,17 +287,20 @@ export function ProfileView({
                 <Link2 className="size-4" /> {user.website}
               </a>
             )}
-            <span className="inline-flex items-center gap-1.5">
+            <span className="group/joindate inline-flex items-center gap-1.5" title={formatFullDate(user.joinedAt)}>
               <CalendarDays className="size-4" /> На Lumyn з {formatJoined(user.joinedAt)}
             </span>
           </div>
         )}
 
         {!isBlocked && (
-          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+            <span className="flex items-baseline gap-1.5 text-sm">
+              <span className="font-semibold tabular text-foreground">{formatCount(user.postsCount)}</span>
+              <span className="text-muted-foreground">{plural(user.postsCount, ["допис", "дописи", "дописів"])}</span>
+            </span>
             <Stat value={user.followers} label={plural(user.followers, ["читач", "читачі", "читачів"])} href={`/${user.username}/followers`} />
             <Stat value={user.following} label="читає" href={`/${user.username}/following`} />
-            <Stat value={user.postsCount} label={plural(user.postsCount, ["допис", "дописи", "дописів"])} />
           </div>
         )}
 

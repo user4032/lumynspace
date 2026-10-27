@@ -49,7 +49,7 @@ export function LegalShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-5">
-          <Link href="/" aria-label="Lumyn — на головну" className="shrink-0">
+          <Link href="/" aria-label="Lumyn — на головну" className="inline-flex shrink-0 items-center">
             <Logo />
           </Link>
           <nav aria-label="Інформаційні сторінки" className="-mx-2 hidden items-center gap-1 sm:flex">

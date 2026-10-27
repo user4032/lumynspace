@@ -97,7 +97,73 @@ export async function createGroupConversation(title: string, memberIds: string[]
   return { ok: true, data: id }
 }
 
-/** Вийти з групи (свій рядок conversation_members; RLS дозволяє лише свій). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const MAX_GROUP_MEMBERS = 50
+type ServerClient = NonNullable<Awaited<ReturnType<typeof getSupabaseServerClient>>>
+
+/** null → можна; інакше текст помилки. Керувати учасниками групи може лише її творець. */
+async function groupManageError(supabase: ServerClient, conversationId: string, me: string): Promise<string | null> {
+  const { data, error } = await supabase.from("conversations").select("is_group, created_by").eq("id", conversationId).maybeSingle()
+  if (error) return error.message
+  const conv = data as { is_group: boolean; created_by: string } | null
+  if (!conv) return "Групу не знайдено"
+  if (!conv.is_group) return "Це не група"
+  if (conv.created_by !== me) return "Лише творець групи керує учасниками"
+  return null
+}
+
+/** Додати людей до існуючої групи (творець; до 50 учасників разом із ним). Повертає, скільки реально додано. */
+export async function addGroupMembers(conversationId: string, userIds: string[]): Promise<ActionResult<number>> {
+  if (!UUID_RE.test(conversationId)) return { ok: false, error: "Некоректна група" }
+  const ids = [...new Set(userIds.filter((id) => UUID_RE.test(id)))]
+  if (!ids.length) return { ok: false, error: "Оберіть хоча б одну людину" }
+  const supabase = await getSupabaseServerClient()
+  if (!supabase) return { ok: true, mock: true }
+  const { data: claims } = await supabase.auth.getClaims()
+  const me = claims?.claims?.sub as string | undefined
+  if (!me) return { ok: false, error: "Увійдіть" }
+
+  const denied = await groupManageError(supabase, conversationId, me)
+  if (denied) return { ok: false, error: denied }
+
+  const { data: existing, error: listErr } = await supabase.from("conversation_members").select("user_id").eq("conversation_id", conversationId)
+  if (listErr) return { ok: false, error: listErr.message }
+  const have = new Set((existing ?? []).map((r) => r.user_id))
+  const fresh = ids.filter((id) => id !== me && !have.has(id))
+  if (!fresh.length) return { ok: true, data: 0 }
+  if (have.size + fresh.length > MAX_GROUP_MEMBERS) return { ok: false, error: `У групі може бути до ${MAX_GROUP_MEMBERS} учасників` }
+
+  const rows = fresh.map((user_id) => ({ conversation_id: conversationId, user_id }))
+  const { error } = await supabase
+    .from("conversation_members")
+    .upsert(rows as never, { onConflict: "conversation_id,user_id", ignoreDuplicates: true })
+  return error ? { ok: false, error: error.message } : { ok: true, data: fresh.length }
+}
+
+/** Прибрати учасника з групи. Себе — як «вийти»; іншого — лише творець (RLS conv_members_kick_by_creator). */
+export async function removeGroupMember(conversationId: string, userId: string): Promise<ActionResult> {
+  if (!UUID_RE.test(conversationId) || !UUID_RE.test(userId)) return { ok: false, error: "Некоректні дані" }
+  const supabase = await getSupabaseServerClient()
+  if (!supabase) return { ok: true, mock: true }
+  const { data: claims } = await supabase.auth.getClaims()
+  const me = claims?.claims?.sub as string | undefined
+  if (!me) return { ok: false, error: "Увійдіть" }
+  if (userId === me) return leaveGroup(conversationId)
+
+  const denied = await groupManageError(supabase, conversationId, me)
+  if (denied) return { ok: false, error: denied }
+  // RLS мовчки відфільтровує заборонені рядки, тому просимо повернути видалене
+  const { data, error } = await supabase
+    .from("conversation_members")
+    .delete()
+    .match({ conversation_id: conversationId, user_id: userId })
+    .select("user_id")
+  if (error) return { ok: false, error: error.message }
+  if (!data?.length) return { ok: false, error: "Учасника не знайдено" }
+  return { ok: true }
+}
+
+/** Вийти з групи (свій рядок conversation_members; RLS дозволяє видаляти свій рядок). */
 export async function leaveGroup(conversationId: string): Promise<ActionResult> {
   const supabase = await getSupabaseServerClient()
   if (!supabase) return { ok: true, mock: true }

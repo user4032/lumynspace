@@ -12,6 +12,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client"
 import { useViewer } from "@/lib/viewer-store"
 import { plural } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { confirm } from "@/components/ui/confirm-dialog"
 
 type CircleItem = { id: string; name: string; members: string[] }
 
@@ -66,7 +67,7 @@ export function CirclesManager() {
   }
 
   const remove = async (c: CircleItem) => {
-    if (!window.confirm(`Видалити коло «${c.name}»? Дописи для цього кола теж буде видалено.`)) return
+    if (!(await confirm({ title: "Видалити коло", description: `Видалити коло «${c.name}»? Дописи для цього кола теж буде видалено.`, confirmText: "Видалити", cancelText: "Скасувати", destructive: true }))) return
     const supabase = getSupabaseBrowserClient()
     if (!supabase) return
     const { error } = await supabase.from("circles").delete().eq("id", c.id)

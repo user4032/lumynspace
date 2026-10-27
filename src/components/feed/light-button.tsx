@@ -53,27 +53,20 @@ export function LightButton({
       whileTap={reduce ? undefined : { scale: 0.9 }}
       onClick={(e) => {
         e.stopPropagation()
-        if (!lit) setBurst((b) => b + 1)
+        setBurst((b) => b + 1)
         onToggle()
       }}
       className={cn(
-        "group/light -ml-2 inline-flex h-8 items-center gap-1 rounded-full pr-2 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "group/light -ml-2 inline-flex h-8 items-center gap-1 rounded-full pr-2 outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring",
         lit ? "text-glow" : "text-muted-foreground hover:text-glow",
         className
       )}
     >
-      <span className="relative inline-flex rounded-full p-1.5 transition-colors group-hover/light:bg-glow/10">
-        {/* світіння + іскри — новий ключ на кожне «світло», щоб анімація стартувала заново */}
+      <span className="relative inline-flex p-1.5">
+        {/* лише іскри на клік — без постійного кола, кільця чи світіння */}
         <AnimatePresence>
           {burst > 0 && lit && (
             <span key={burst} aria-hidden className="pointer-events-none absolute inset-0">
-              <motion.span
-                className="absolute inset-0 rounded-full"
-                style={{ background: "radial-gradient(circle, var(--glow) 0%, transparent 65%)" }}
-                initial={reduce ? { opacity: 0.6 } : { scale: 0, opacity: 0.6 }}
-                animate={reduce ? { opacity: 0 } : { scale: 2.2, opacity: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-              />
               {!reduce &&
                 Array.from({ length: SPARKS }).map((_, i) => {
                   const angle = (i / SPARKS) * Math.PI * 2 - Math.PI / 2
@@ -92,10 +85,15 @@ export function LightButton({
           )}
         </AnimatePresence>
         <span ref={scope} className="relative block">
-          <SparkIcon filled={lit} className={cn(icon, lit && "drop-shadow-[0_0_6px_var(--glow)]")} />
+          <SparkIcon filled={lit} className={icon} />
         </span>
       </span>
-      <span className="relative inline-flex h-4 min-w-[1ch] overflow-hidden text-[13px] tabular">
+      <span
+        className={cn(
+          "relative inline-flex h-4 min-w-[1ch] overflow-hidden text-[13px] tabular",
+          lit ? "text-glow" : "text-muted-foreground",
+        )}
+      >
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={count}

@@ -97,6 +97,7 @@ export function StoryViewer({
   const paused = composerFocused || reactionOpen || insightsOpen
 
   // новий сторіс — чистий композер і закрита статистика
+  /* eslint-disable react-hooks/set-state-in-effect -- навмисне скидання тимчасового UI при зміні сторіс */
   useEffect(() => {
     setReply("")
     setComposerFocused(false)
@@ -108,6 +109,7 @@ export function StoryViewer({
     setVideoTime(0)
     setVideoDuration(0)
   }, [storyId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // автоперехід для картинок + живий прогрес (пауза, поки відповідаємо / обираємо реакцію / дивимось статистику)
   useEffect(() => {
@@ -224,12 +226,12 @@ export function StoryViewer({
           {/* прогрес */}
           <div className="absolute inset-x-0 top-0 z-20 flex gap-1 p-2.5">
             {group.stories.map((s, i) => (
-              <span key={s.id} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/25">
+              <span key={s.id} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/20 shadow-[0_0_0_1px_rgb(0_0_0/0.2)]">
                 <span
-                  className="block h-full rounded-full bg-white transition-[width] duration-150 ease-linear"
+                  className="block h-full rounded-full bg-white shadow-[0_0_12px_rgb(255_255_255/0.6)] transition-[width] duration-150 ease-linear"
                   style={{
                     width: i < si ? "100%" : i === si ? `${Math.min(100, progress * 100)}%` : "0%",
-                    opacity: i > si ? 0.4 : 1,
+                    opacity: i > si ? 0.35 : 1,
                   }}
                 />
               </span>
@@ -633,12 +635,18 @@ function clock(seconds: number) {
 
 function InsightPerson({ user, at }: { user: StoryActor; at?: string }) {
   return (
-    <li className="flex items-center gap-2.5">
-      <UserAvatar user={user} size="sm" />
-      <span className="min-w-0 flex-1 truncate text-sm">
-        {user.name} <span className="text-white/45">@{user.username}</span>
-      </span>
-      {at && <span className="shrink-0 text-[11px] text-white/40">{at}</span>}
+    <li>
+      <Link
+        href={`/${user.username}`}
+        className="-mx-1.5 flex items-center gap-2.5 rounded-lg px-1.5 py-1 transition-colors hover:bg-white/10"
+      >
+        <UserAvatar user={user} size="sm" />
+        <span className="min-w-0 flex-1 truncate text-sm">
+          {user.name} <span className="text-white/45">@{user.username}</span>
+        </span>
+        {at && <span className="shrink-0 text-[11px] text-white/40">{at}</span>}
+        <ChevronRight className="size-3.5 shrink-0 text-white/30" />
+      </Link>
     </li>
   )
 }

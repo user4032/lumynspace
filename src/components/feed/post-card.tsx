@@ -64,8 +64,8 @@ export function PostMediaView({ post }: { post: Post }) {
                   alt={m.alt ?? ""}
                   width={m.width ?? 1200}
                   height={m.height ?? 800}
-                  sizes="(max-width: 768px) 100vw, 560px"
-                  className="max-h-[520px] w-full object-cover transition-transform duration-500 ease-out hover:scale-[1.015]"
+                  sizes="(max-width: 768px) 100vw, 680px"
+                  className="max-h-[80vh] w-full object-contain bg-black/5 transition-transform duration-500 ease-out hover:scale-[1.01]"
                 />
               </button>
             </div>
@@ -236,9 +236,12 @@ export function PostCard({
         }}
         onClick={onCardClick}
         onPointerMove={onPointerMove}
-        style={accentVars(post.author.accentColor)}
-        data-glow={isGlow || undefined}
-        className="spotlight group/post relative cursor-pointer overflow-hidden border-b px-4 pt-3.5 pb-2 transition-colors hover:bg-subtle/60"
+        style={
+          {
+            ...accentVars(post.author.accentColor),
+          } as React.CSSProperties
+        }
+        className="spotlight group/post relative mx-3 my-2.5 cursor-pointer overflow-hidden rounded-2xl bg-card px-4 pt-4 pb-2 transition-colors hover:bg-raised"
       >
         <LightFlash flash={flash} />
 
@@ -337,7 +340,7 @@ export function PostCard({
 
 export function PostSkeleton({ media = false, className }: { media?: boolean; className?: string }) {
   return (
-    <div className={cn("flex gap-3 border-b px-4 py-4", className)} aria-hidden>
+    <div className={cn("mx-3 my-2.5 flex gap-3 rounded-2xl bg-card px-4 py-4", className)} aria-hidden>
       <div className="shimmer size-10 shrink-0 rounded-full" />
       <div className="flex-1 space-y-2.5 pt-0.5">
         <div className="flex items-center gap-2">

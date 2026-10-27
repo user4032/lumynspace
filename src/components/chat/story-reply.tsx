@@ -30,7 +30,7 @@ export function StoryReplyCard({
       aria-label={`Відкрити історію ${story.author.name}`}
       className={cn(
         "group/story relative block w-[7.75rem] shrink-0 overflow-hidden rounded-xl border text-left transition-transform active:scale-[0.98]",
-        mine ? "border-primary-foreground/25" : "border-border/70",
+        mine ? "border-brand/30" : "border-border/70",
       )}
     >
       <span className="relative block aspect-[9/15] bg-black">

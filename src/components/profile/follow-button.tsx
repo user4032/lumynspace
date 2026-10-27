@@ -50,7 +50,7 @@ export function FollowButton({
   return (
     <Button
       size={size}
-      variant={active ? "secondary" : "default"}
+      variant={active ? "secondary" : "outline"}
       onClick={(e) => {
         e.stopPropagation()
         onClick()

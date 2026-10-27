@@ -2,19 +2,24 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import { Clapperboard, MessageCircle, Volume2, VolumeX } from "lucide-react"
+import { Clapperboard, MessageCircle, Volume2, VolumeX, X } from "lucide-react"
 import type { Post } from "@/types"
 import { UserAvatar } from "@/components/user-avatar"
 import { VerifiedBadge } from "@/components/verified-badge"
 import { LightButton } from "@/components/feed/light-button"
 import { ShareMenu } from "@/components/feed/post-actions"
 import { RichText } from "@/components/feed/rich-text"
+import { PostCard } from "@/components/feed/post-card"
+import { Composer } from "@/components/feed/composer"
 import { usePostLight } from "@/hooks/usePostLight"
 import { useNow } from "@/hooks/useNow"
 import { formatCount, timeAgo } from "@/lib/format"
 import { accentVars } from "@/lib/accent"
 import { isMockMode } from "@/lib/env"
 import { cn } from "@/lib/utils"
+import { getSupabaseBrowserClient } from "@/lib/supabase/client"
+import { resolveFeedRows } from "@/lib/feed-map"
+import type { FeedPostRow } from "@/types/database"
 
 /** Один кліп: вертикальне відео на весь екран, автовідтворення при скролі */
 function Clip({ post, index }: { post: Post; index: number }) {
@@ -22,8 +27,34 @@ function Clip({ post, index }: { post: Post; index: number }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [muted, setMuted] = useState(true)
   const [flash, setFlash] = useState(0)
+  const [openComments, setOpenComments] = useState(false)
+  const [replies, setReplies] = useState<Post[]>([])
+  const [loadingReplies, setLoadingReplies] = useState(false)
   const light = usePostLight(post, () => setFlash((f) => f + 1))
   const now = useNow()
+
+  useEffect(() => {
+    if (!openComments || replies.length || loadingReplies) return
+    setLoadingReplies(true)
+    const supabase = getSupabaseBrowserClient()
+    if (!supabase) {
+      setLoadingReplies(false)
+      return
+    }
+    void supabase
+      .from("feed_posts")
+      .select("*")
+      .eq("reply_to", post.id)
+      .order("created_at", { ascending: true })
+      .limit(100)
+      .then(async ({ data }) => {
+        if (data) {
+          const resolved = await resolveFeedRows(supabase, data as FeedPostRow[])
+          setReplies(resolved)
+        }
+        setLoadingReplies(false)
+      })
+  }, [openComments, post.id, replies.length, loadingReplies])
 
   useEffect(() => {
     const el = videoRef.current
@@ -104,16 +135,20 @@ function Clip({ post, index }: { post: Post; index: number }) {
         <div className="flex flex-col items-center gap-1">
           <LightButton lit={light.lit} count={light.lights} onToggle={light.toggle} size="lg" className="text-white hover:text-white" />
         </div>
-        <Link
-          href={`/post/${post.id}`}
+        <button
+          type="button"
           aria-label={`${formatCount(post.replies)} відповідей`}
+          onClick={(e) => {
+            e.stopPropagation()
+            setOpenComments(true)
+          }}
           className="flex flex-col items-center gap-1 transition-opacity hover:opacity-80"
         >
           <span className="grid size-11 place-items-center rounded-full bg-black/40 backdrop-blur">
             <MessageCircle className="size-5.5" />
           </span>
           <span className="font-mono text-[11px] tabular">{formatCount(post.replies)}</span>
-        </Link>
+        </button>
         <ShareMenu post={post} iconClass="size-5.5" />
       </div>
 
@@ -137,6 +172,51 @@ function Clip({ post, index }: { post: Post; index: number }) {
           </p>
         )}
       </div>
+
+      {/* Панель коментарів */}
+      {openComments && (
+        <>
+          <div
+            aria-hidden
+            className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm"
+            onClick={() => setOpenComments(false)}
+          />
+          <aside className="absolute top-0 right-0 z-40 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-background text-foreground shadow-2xl animate-in slide-in-from-right duration-200">
+            <header className="flex items-center justify-between border-b px-4 py-3">
+              <p className="text-sm font-semibold">Коментарі</p>
+              <button
+                type="button"
+                aria-label="Закрити"
+                onClick={() => setOpenComments(false)}
+                className="grid size-8 place-items-center rounded-full hover:bg-muted"
+              >
+                <X className="size-4" />
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto">
+              <div className="border-b">
+                <PostCard post={post} index={0} />
+              </div>
+              <div className="px-4 py-3 text-sm text-muted-foreground">Відповіді</div>
+              {loadingReplies && (
+                <div className="space-y-2 px-4">
+                  <div className="shimmer h-16 rounded-xl" />
+                  <div className="shimmer h-16 rounded-xl" />
+                </div>
+              )}
+              {!loadingReplies && replies.length === 0 && (
+                <p className="px-4 pb-4 text-sm text-muted-foreground">Поки немає відповідей</p>
+              )}
+              {replies.map((r, i) => (
+                <PostCard key={r.clientKey ?? r.id} post={r} index={i} />
+              ))}
+            </div>
+            <div className="border-t">
+              <Composer compact replyTo={post.id} placeholder={`Відповісти @${post.author.username}…`} submitLabel="Відповісти" onPublish={(p) => setReplies((prev) => [p, ...prev])} surface="flat" />
+            </div>
+          </aside>
+        </>
+      )}
     </section>
   )
 }

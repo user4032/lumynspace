@@ -6,7 +6,6 @@ import { ArrowUp, Check } from "lucide-react"
 import type { FeedTab, Post } from "@/types"
 import { useInfiniteFeed } from "@/hooks/useInfiniteFeed"
 import { Button } from "@/components/ui/button"
-import { PageHeader } from "@/components/layout/page-header"
 import { cn } from "@/lib/utils"
 import { Composer } from "./composer"
 import { FeedTuner } from "./feed-tuner"
@@ -15,13 +14,13 @@ import { PostCard, PostSkeleton } from "./post-card"
 import { FeedTunerContext } from "./post-meta"
 
 const TABS: { value: FeedTab; label: string }[] = [
-  { value: "for-you", label: "Для тебе" },
-  { value: "following", label: "Підписки" },
+  { value: "for-you", label: "Потік" },
+  { value: "following", label: "Коло" },
 ]
 
 export function FeedTabs({ value, onChange }: { value: FeedTab; onChange: (v: FeedTab) => void }) {
   return (
-    <div role="tablist" aria-label="Стрічка" className="flex flex-1">
+    <div role="tablist" aria-label="Стрічка" className="flex flex-1 gap-1 rounded-full bg-subtle p-1">
       {TABS.map((t) => {
         const active = t.value === value
         return (
@@ -31,18 +30,11 @@ export function FeedTabs({ value, onChange }: { value: FeedTab; onChange: (v: Fe
             aria-selected={active}
             onClick={() => onChange(t.value)}
             className={cn(
-              "relative flex h-[52px] flex-1 items-center justify-center text-[15px] font-medium transition-colors hover:bg-subtle",
-              active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              "h-8 flex-1 rounded-full text-[13.5px] font-medium transition-colors",
+              active ? "bg-card text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.35)]" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {t.label}
-            {active && (
-              <motion.span
-                layoutId="feed-tab-underline"
-                className="absolute bottom-0 h-[2px] w-14 rounded-full bg-foreground"
-                transition={{ type: "spring", stiffness: 500, damping: 38 }}
-              />
-            )}
           </button>
         )
       })}
@@ -75,7 +67,7 @@ function FeedList({ tab }: { tab: FeedTab }) {
   return (
     <>
       <StoriesBar />
-      <Composer onPublish={onPublish} onSettled={onSettled} />
+      <Composer surface="card" onPublish={onPublish} onSettled={onSettled} />
       <AnimatePresence initial={false}>
         {newCount > 0 && (
           <motion.button
@@ -96,7 +88,7 @@ function FeedList({ tab }: { tab: FeedTab }) {
         )}
       </AnimatePresence>
       {tab === "following" && posts.length > 0 && (
-        <p className="border-b px-4 py-2 text-xs text-muted-foreground">
+        <p className="mx-3 my-2.5 rounded-xl bg-subtle/60 px-3 py-2 text-xs text-muted-foreground">
           Лише ті, кого ви читаєте, від нових до старих. Без алгоритму.
         </p>
       )}
@@ -159,23 +151,25 @@ export function Feed() {
   )
   return (
     <FeedTunerContext.Provider value={tunerCtx}>
-      <PageHeader className="md:top-14">
-        <div className="flex items-center">
+      <div className="sticky top-14 z-30 bg-background/65 px-3 py-2.5 backdrop-blur-xl">
+        <div className="flex items-center gap-1.5">
           <FeedTabs value={tab} onChange={setTab} />
           <AnimatePresence initial={false}>
             {tab === "for-you" && (
               <motion.div
                 initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 52 }}
+                animate={{ opacity: 1, width: 40 }}
                 exit={{ opacity: 0, width: 0 }}
                 className="flex shrink-0 justify-center overflow-hidden"
               >
-                <FeedTuner open={tunerOpen} onOpenChange={setTunerOpen} />
+                <div className="grid size-10 shrink-0 place-items-center rounded-full bg-subtle">
+                  <FeedTuner open={tunerOpen} onOpenChange={setTunerOpen} />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-      </PageHeader>
+      </div>
       <FeedList key={tab} tab={tab} />
     </FeedTunerContext.Provider>
   )

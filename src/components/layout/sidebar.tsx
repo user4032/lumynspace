@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { Suspense } from "react"
 import { usePathname } from "next/navigation"
-import { motion } from "framer-motion"
 import { PenSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -23,7 +22,7 @@ function SidebarNav({ pathname }: { pathname: string | null }) {
   const me = useMe()
   const unread = useUnreadCounts(pathname)
   return (
-      <nav aria-label="Основна навігація" className="flex flex-col gap-0.5">
+      <nav aria-label="Основна навігація" className="flex flex-col gap-1">
         {withBadges(withMyProfile(navItems, me.username), unread).map((item) => {
           const active = pathname !== null && isActive(pathname, item.href)
           return (
@@ -33,17 +32,10 @@ function SidebarNav({ pathname }: { pathname: string | null }) {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group relative flex h-10 items-center gap-3 rounded-md px-3 text-[14px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring max-xl:justify-center max-xl:px-0",
-                    active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                    "group relative flex h-10 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring max-xl:justify-center max-xl:px-0",
+                    active ? "bg-brand/12 text-brand" : "text-muted-foreground hover:bg-subtle hover:text-foreground"
                   )}
                 >
-                  {active && (
-                    <motion.span
-                      layoutId="sidebar-active"
-                      className="absolute inset-0 rounded-md bg-muted"
-                      transition={{ type: "spring", stiffness: 520, damping: 40 }}
-                    />
-                  )}
                   <span className="relative">
                     <item.icon className="size-[18px]" strokeWidth={active ? 2.2 : 1.8} />
                     {item.badge ? (
@@ -52,7 +44,7 @@ function SidebarNav({ pathname }: { pathname: string | null }) {
                   </span>
                   <span className="relative hidden xl:inline">{item.label}</span>
                   {item.badge ? (
-                    <span className="relative ml-auto hidden h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 font-mono text-[11px] font-semibold text-brand-foreground tabular xl:inline-flex">
+                    <span className="relative ml-auto hidden h-5 min-w-5 items-center justify-center rounded-full bg-brand/15 px-1.5 font-mono text-[11px] font-semibold text-brand tabular xl:inline-flex">
                       {item.badge}
                     </span>
                   ) : null}
@@ -71,12 +63,12 @@ function SidebarNav({ pathname }: { pathname: string | null }) {
 export function Sidebar() {
   const me = useMe()
   return (
-    <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] shrink-0 flex-col py-4 pr-3 md:flex md:w-[64px] xl:w-[232px]">
+    <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] shrink-0 flex-col py-4 pr-2 md:flex md:w-[72px] xl:w-[208px]">
       <Suspense fallback={<SidebarNav pathname={null} />}>
         <ActiveNav />
       </Suspense>
 
-      <Button asChild size="lg" className="mt-5 max-xl:size-10 max-xl:self-center max-xl:px-0">
+      <Button asChild size="lg" variant="brand" className="mt-4 max-xl:size-10 max-xl:self-center max-xl:px-0">
         <Link href="/?compose=1" aria-label="Новий допис">
           <PenSquare />
           <span className="hidden xl:inline">Новий допис</span>
@@ -85,7 +77,7 @@ export function Sidebar() {
 
       <Link
         href={me.username ? `/${me.username}` : "#"}
-        className="mt-auto flex items-center gap-3 rounded-md p-2 transition-colors hover:bg-muted max-xl:justify-center"
+        className="mt-auto flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-subtle max-xl:justify-center"
       >
         <UserAvatar user={me} size="md" showOnline />
         <span className="hidden min-w-0 flex-1 xl:block">

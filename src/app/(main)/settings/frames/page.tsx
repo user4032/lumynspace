@@ -58,7 +58,7 @@ export default function FramesPage() {
   const activeInfo = frameByKey(active)
 
   const buyLink = (f: { key: string; name: string; price: number; seasonal?: unknown }) =>
-    `https://t.me/${ADMIN_TG}?text=${encodeURIComponent(`Привіт! Я @${me.username || "користувач Lumyn"}, хочу купити рамку «${f.name}» (${f.price} грн${f.seasonal ? " / 30 днів" : ", назавжди"}).`)}`
+    `https://t.me/${ADMIN_TG}?text=${encodeURIComponent(`Привіт! Я @${me.username || "користувач Lumyn"}, хочу купити рамку «${f.name}» за ${f.price} світла${f.seasonal ? " (30 днів)" : " (назавжди)"}.`)}`
 
   const activate = () =>
     startTransition(async () => {
@@ -219,7 +219,7 @@ export default function FramesPage() {
                       {active === f.key && <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[10px] font-medium text-brand">активна</span>}
                     </p>
                     <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{f.desc}</p>
-                    <p className="mt-1.5 font-mono text-sm font-semibold">{f.price} грн <span className="font-normal text-muted-foreground">/ 30 днів</span></p>
+                    <p className="mt-1.5 font-mono text-sm font-semibold">{f.price} світла <span className="font-normal text-muted-foreground">/ 30 днів</span></p>
                   </div>
                   <BuyButton
                     href={buyLink({ ...f, name: `${f.name} (Хелловін)` })}
@@ -242,7 +242,7 @@ export default function FramesPage() {
                   {active === f.key && <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[10px] font-medium text-brand">активна</span>}
                 </p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{f.desc}</p>
-                <p className="mt-1.5 font-mono text-sm font-semibold">{f.price} грн <span className="font-normal text-muted-foreground">· назавжди</span></p>
+                <p className="mt-1.5 font-mono text-sm font-semibold">{f.price} світла <span className="font-normal text-muted-foreground">· назавжди</span></p>
               </div>
               <BuyButton href={buyLink(f)} disabled={active === f.key} />
             </div>
@@ -250,8 +250,9 @@ export default function FramesPage() {
         </div>
 
         <p className="pb-4 text-xs leading-relaxed text-muted-foreground">
-          Купівля: натискаєте «Купити» — відкриється чат з адміністратором у Telegram із готовим повідомленням. Після оплати
-          отримаєте одноразовий промокод і активуєте його у полі вище. Рамка — суто косметика: жодних переваг у стрічці.
+          Купівля: натискаєте «Купити» — відкриється чат з адміністратором у Telegram із готовим повідомленням. Оплачуєте рамку
+          за світло. Після оплати отримаєте одноразовий промокод і активуєте його у полі вище. Рамка — суто косметика: жодних
+          переваг у стрічці.
         </p>
       </div>
     </>

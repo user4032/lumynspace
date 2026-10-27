@@ -41,7 +41,7 @@ function MobileNavInner({ pathname }: { pathname: string | null }) {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "relative flex size-11 items-center justify-center rounded-full transition-colors",
-                  active ? "text-foreground" : "text-muted-foreground"
+                  active ? "bg-brand/12 text-brand" : "text-muted-foreground"
                 )}
               >
                 <item.icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.7} />

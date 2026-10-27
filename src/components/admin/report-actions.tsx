@@ -5,13 +5,14 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { adminDeletePost, adminResolveReport, type AdminResult } from "@/lib/actions/admin"
+import { confirm } from "@/components/ui/confirm-dialog"
 
 export function ReportActions({ reportId, postId }: { reportId: string; postId: string | null }) {
   const router = useRouter()
   const [busy, start] = useTransition()
   const run = (fn: () => Promise<AdminResult>, done: string, ask?: string) => {
-    if (ask && !window.confirm(ask)) return
     start(async () => {
+      if (ask && !(await confirm({ title: "Підтвердити дію", description: ask, confirmText: "Видалити", cancelText: "Скасувати", destructive: true }))) return
       const res = await fn()
       if (!res.ok) toast.error(res.error)
       else {

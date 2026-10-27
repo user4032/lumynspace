@@ -84,17 +84,16 @@ export function MessageBody({
           key={v.path}
           className={cn(
             "flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-1.5",
-            mine ? "border-primary-foreground/20 bg-primary-foreground/10" : "bg-background",
+            mine ? "border-border/70 bg-background/60" : "bg-background",
           )}
         >
           <Mic className="size-4 shrink-0" />
           {urls[v.path] ? (
-            // eslint-disable-next-line jsx-a11y/media-has-caption -- голосове без субтитрів
             <audio controls preload="metadata" src={urls[v.path]} className="h-9 min-w-0 flex-1" />
           ) : (
             <span className="h-9 flex-1 animate-pulse rounded-lg bg-muted" />
           )}
-          <span className={cn("shrink-0 font-mono text-xs tabular", mine ? "text-primary-foreground/60" : "text-muted-foreground")}>
+          <span className="shrink-0 font-mono text-xs text-muted-foreground tabular">
             {formatVoice(v.duration)}
           </span>
         </div>
@@ -105,14 +104,14 @@ export function MessageBody({
           href={urls[f.path] ? `${urls[f.path]}&download=${encodeURIComponent(f.name)}` : undefined}
           className={cn(
             "flex min-w-0 items-center gap-3 rounded-xl border px-3 py-2",
-            mine ? "border-primary-foreground/20 bg-primary-foreground/10" : "bg-background",
+            mine ? "border-border/70 bg-background/60" : "bg-background",
             !urls[f.path] && "pointer-events-none opacity-60",
           )}
         >
           <FileText className="size-5 shrink-0" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium">{f.name}</span>
-            <span className={cn("block text-xs", mine ? "text-primary-foreground/60" : "text-muted-foreground")}>
+            <span className="block text-xs text-muted-foreground">
               {formatBytes(f.size)} · {f.mime.split("/")[1]?.toUpperCase() || "файл"}
             </span>
           </span>
@@ -120,7 +119,7 @@ export function MessageBody({
         </a>
       ))}
       {text && <LinkifiedText text={text} />}
-      {profileUrl && <ProfileLinkPreview url={profileUrl} mine={mine} />}
+      {profileUrl && <ProfileLinkPreview url={profileUrl} />}
     </div>
   )
 }

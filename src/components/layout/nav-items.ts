@@ -14,11 +14,11 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { href: "/", label: "Головна", icon: House, shortcut: "G H" },
+  { href: "/messages", label: "Повідомлення", icon: MessageSquare, badge: isMockMode ? 3 : undefined, shortcut: "G M" },
+  { href: "/communities", label: "Спільноти", icon: Users, shortcut: "G C" },
   { href: "/explore", label: "Огляд", icon: Compass, shortcut: "G E" },
   { href: "/clips", label: "Кліпи", icon: Clapperboard, shortcut: "G L" },
-  { href: "/communities", label: "Спільноти", icon: Users, shortcut: "G C" },
   { href: "/bookmarks", label: "Збережені", icon: Bookmark, shortcut: "G B" },
-  { href: "/messages", label: "Повідомлення", icon: MessageSquare, badge: isMockMode ? 3 : undefined, shortcut: "G M" },
   { href: "/notifications", label: "Сповіщення", icon: Bell, badge: isMockMode ? 4 : undefined, shortcut: "G N" },
   { href: "#", label: "Профіль", icon: User, shortcut: "G P", me: true },
   { href: "/settings", label: "Налаштування", icon: Settings, shortcut: "G S" },

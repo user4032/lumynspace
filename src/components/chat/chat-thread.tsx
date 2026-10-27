@@ -30,6 +30,7 @@ import type { ChatAttachment, ChatStorySnapshot, Conversation, Message, StoryGro
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { deleteMessage, editMessage, markConversationRead, reactMessage, sendMessage, startDirectConversation } from "@/lib/actions/social";
+import { confirm } from "@/components/ui/confirm-dialog"
 import { getStoryThread } from "@/lib/actions/stories";
 import type { MessageReaction } from "@/types";
 import { useRealtime, useTypingChannel } from "@/hooks/useRealtime";
@@ -297,7 +298,7 @@ export function ChatThread({ conversation }: { conversation: Conversation }) {
     cancelEdit();
   };
   const removeMessage = async (m: Message) => {
-    if (!window.confirm("Видалити це повідомлення?")) return;
+    if (!(await confirm({ title: "Видалити повідомлення", description: "Цю дію неможливо скасувати.", confirmText: "Видалити", cancelText: "Скасувати", destructive: true }))) return;
     const res = await deleteMessage(m.id);
     if (!res.ok) return toast.error(res.error);
     setMessages((list) => list.filter((x) => x.id !== m.id));
@@ -582,9 +583,7 @@ export function ChatThread({ conversation }: { conversation: Conversation }) {
                   <div
                     className={cn(
                       "group/msg relative min-w-0 max-w-full rounded-2xl px-3.5 py-2 text-[14.5px] leading-relaxed [overflow-wrap:anywhere]",
-                      mine
-                        ? "bg-primary text-primary-foreground"
-                        : "border bg-subtle",
+                      mine ? "bubble-me" : "border bg-subtle",
                       mine && grouped && "rounded-tr-md",
                       !mine && grouped && "rounded-tl-md",
                     )}
@@ -600,7 +599,7 @@ export function ChatThread({ conversation }: { conversation: Conversation }) {
                         <p
                           className={cn(
                             "mb-1.5 truncate border-l-2 pl-2 text-xs",
-                            mine ? "border-primary-foreground/30 text-primary-foreground/70" : "border-border text-muted-foreground",
+                            mine ? "border-brand/40 text-muted-foreground" : "border-border text-muted-foreground",
                           )}
                         >
                           <CornerUpLeft className="mr-1 inline size-3" />
@@ -655,14 +654,7 @@ export function ChatThread({ conversation }: { conversation: Conversation }) {
                       onOpenStory={(story) => void openStory(story)}
                     />
                   )}
-                  <span
-                    className={cn(
-                      "mt-0.5 block text-right font-mono text-[10px]",
-                      mine
-                        ? "text-primary-foreground/55"
-                        : "text-muted-foreground",
-                    )}
-                  >
+                  <span className="mt-0.5 block text-right font-mono text-[10px] text-muted-foreground">
                     {formatTime(m.createdAt)}
                     {m.editedAt ? " · змінено" : ""}
                   </span>

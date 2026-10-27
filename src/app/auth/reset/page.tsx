@@ -63,8 +63,8 @@ export default function ResetPasswordPage() {
         style={{ background: "radial-gradient(closest-side, var(--brand), transparent)" }}
       />
       <header className="relative flex h-16 items-center px-6">
-        <Link href="/" className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.03em]">
-          <Logo /> Lumyn
+        <Link href="/" className="flex items-center gap-2">
+          <Logo />
         </Link>
       </header>
       <main className="relative flex flex-1 items-center justify-center px-4 pb-16">

@@ -49,7 +49,12 @@ export function ProfilePhotos() {
   const pick = (kind: Kind) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ""
+    
     if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+    toast.error("Файл завеликий (максимум 5 МБ)")
+    return
+  }
     // GIF підтримується лише для аватара: ріжемо його тільки в Storage, без кропу (щоб зберегти анімацію)
     if (file.type === "image/gif") {
       if (kind === "avatar") {

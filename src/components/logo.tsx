@@ -11,9 +11,9 @@ export function LogoMark({ className }: { className?: string }) {
 
 export function Logo({ className, withWordmark = true }: { className?: string; withWordmark?: boolean }) {
   return (
-    <span className={cn("inline-flex items-center gap-2 text-foreground", className)}>
+    <span className={cn("inline-flex items-center gap-2 leading-none text-foreground", className)}>
       <LogoMark />
-      {withWordmark && <span className="text-[17px] font-semibold tracking-[-0.03em]">Lumyn</span>}
+      {withWordmark && <span className="text-[17px] leading-none font-semibold tracking-[-0.03em]">Lumyn</span>}
     </span>
   )
 }

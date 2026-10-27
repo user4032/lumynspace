@@ -11,10 +11,10 @@ export type FrameInfo = {
 }
 
 export const FRAMES: FrameInfo[] = [
-  { key: "light", name: "Світло", price: 49, desc: "Спокійне кільце з градієнтом Lumyn" },
-  { key: "glow", name: "Glow", price: 99, desc: "«Дихаюче» тепле сяйво навколо аватара" },
-  { key: "aurora", name: "Аврора", price: 149, desc: "Повільно переливне полярне кільце" },
-  { key: "star", name: "Зоря", price: 299, desc: "Переливи плюс орбітальні іскри" },
+  { key: "light", name: "Світло", price: 150, desc: "Спокійне кільце з градієнтом Lumyn" },
+  { key: "glow", name: "Glow", price: 300, desc: "«Дихаюче» тепле сяйво навколо аватара" },
+  { key: "aurora", name: "Аврора", price: 450, desc: "Повільно переливне полярне кільце" },
+  { key: "star", name: "Зоря", price: 750, desc: "Переливи плюс орбітальні іскри" },
 ]
 
 /** Хелловін-лімітед: у продажу до 3 листопада 2026 */
@@ -24,21 +24,21 @@ export const FRAMES_SEASONAL: FrameInfo[] = [
   {
     key: "hw-pumpkin",
     name: "Гарбуз",
-    price: 79,
+    price: 200,
     desc: "Classic ROBLOX Pumpkin Head — гарбуз-ліхтар сидить зверху над головою",
     seasonal: { label: "Хелловін", until: HALLOWEEN_UNTIL },
   },
   {
     key: "hw-ghost",
     name: "Привид",
-    price: 129,
+    price: 350,
     desc: "Три прозорі привиди літають поруч — видно лише їхні контури",
     seasonal: { label: "Хелловін", until: HALLOWEEN_UNTIL },
   },
   {
     key: "hw-witch",
     name: "Відьма",
-    price: 199,
+    price: 500,
     desc: "Мітла, на якій ти літаєш — лежить під аватаром",
     seasonal: { label: "Хелловін", until: HALLOWEEN_UNTIL },
   },

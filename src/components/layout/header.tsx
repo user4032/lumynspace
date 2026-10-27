@@ -31,9 +31,9 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/75 backdrop-blur-xl supports-backdrop-filter:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-[1220px] items-center gap-3 px-4">
-        <div className="flex shrink-0 items-center gap-2.5 md:w-[64px] xl:w-[232px]">
-          <Link href="/" aria-label="Lumyn — на головну" className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-3 px-4">
+        <div className="flex shrink-0 items-center gap-2.5 md:w-[72px] xl:w-[208px]">
+          <Link href="/" aria-label="Lumyn — на головну" className="inline-flex items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <Logo className="md:max-xl:[&>span]:hidden" />
           </Link>
           {isMockMode && (
@@ -52,7 +52,7 @@ export function Header() {
           <button
             onClick={() => setOpen(true)}
             aria-label="Пошук (⌘K)"
-            className="group flex h-9 items-center gap-2.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground max-sm:size-8 max-sm:justify-center sm:w-full sm:max-w-[440px] sm:border sm:bg-subtle sm:px-3 sm:hover:border-input"
+            className="group flex h-9 items-center gap-2.5 rounded-full text-sm text-muted-foreground transition-colors hover:text-foreground max-sm:size-8 max-sm:justify-center sm:w-full sm:max-w-[380px] sm:bg-card/70 sm:px-4 sm:hover:bg-card"
           >
             <Search className="size-4" />
             <span className="hidden flex-1 truncate text-left sm:inline">Шукати в Lumyn…</span>
@@ -63,7 +63,7 @@ export function Header() {
           </button>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 lg:w-[316px] lg:justify-end">
+        <div className="flex shrink-0 items-center gap-1 lg:w-[300px] lg:justify-end">
           <ThemeToggle />
           <Tooltip>
             <TooltipTrigger asChild>

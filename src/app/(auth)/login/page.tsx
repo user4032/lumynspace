@@ -22,7 +22,7 @@ export default function LoginPage() {
       />
 
       <header className="relative flex h-16 items-center justify-between px-6">
-        <Link href="/" className="flex items-center gap-2 text-[17px] font-semibold tracking-[-0.03em]">
+        <Link href="/" className="flex items-center gap-2 text-[17px] leading-none font-semibold tracking-[-0.03em]">
           <LogoMark /> Lumyn
         </Link>
         <ThemeSwitcher />

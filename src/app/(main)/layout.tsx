@@ -12,11 +12,11 @@ export default function MainLayout({ children }: LayoutProps<"/">) {
       <ViewerSync />
       <PushSetup />
       <Header />
-      <div className="group/shell mx-auto flex max-w-[1220px] justify-center px-0 md:px-4">
+      <div className="group/shell mx-auto flex max-w-[1240px] justify-center px-0 md:px-4">
         <Sidebar />
         <main
           id="content"
-          className="min-h-[calc(100dvh-3.5rem)] min-w-0 flex-1 pb-16 md:border-x md:pb-0 lg:max-w-[640px] group-has-[[data-layout=wide]]/shell:lg:max-w-none"
+          className="min-h-[calc(100dvh-3.5rem)] min-w-0 flex-1 pb-16 md:pb-0 lg:max-w-[680px] group-has-[[data-layout=wide]]/shell:lg:max-w-none"
         >
           {children}
         </main>

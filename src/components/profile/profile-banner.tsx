@@ -75,19 +75,24 @@ export function BannerArt({ style, coverUrl, className }: { style: BannerStyle; 
   )
 }
 
-/** Банер профілю з паралаксом: y 0 → −40 px, opacity 1 → .6 при прокручуванні */
+/** Банер профілю з паралаксом: динамічніший ефект при скролі */
 export function ProfileBanner({ style, coverUrl, children }: { style: BannerStyle; coverUrl?: string | null; children?: React.ReactNode }) {
   const reduce = useReducedMotion()
   const { scrollY } = useScroll()
-  const y = useTransform(scrollY, [0, 240], [0, -40])
-  const opacity = useTransform(scrollY, [0, 240], [1, 0.6])
+  const y = useTransform(scrollY, [0, 320], [0, -80])
+  const scale = useTransform(scrollY, [0, 320], [1, 1.12])
+  const opacity = useTransform(scrollY, [0, 320], [1, 0.7])
+  const blur = useTransform(scrollY, [0, 320], [0, 2])
 
   return (
     <div className="relative z-0 h-[180px] overflow-hidden border-b sm:h-[210px]">
-      <motion.div className="absolute inset-0 -bottom-10" style={reduce ? { opacity } : { y, opacity }}>
+      <motion.div
+        className="absolute inset-0 -bottom-16"
+        style={reduce ? { opacity, scale } : { y, scale, opacity, filter: `blur(${blur.get()}px)` }}
+      >
         <BannerArt style={style} coverUrl={coverUrl} />
       </motion.div>
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/50 via-transparent to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/60 via-background/10 to-transparent" />
       {children}
     </div>
   )
